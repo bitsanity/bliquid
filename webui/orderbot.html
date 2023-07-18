@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>B-LIQUID Order Bot</title>
+  <link id="PageSkin" rel="stylesheet" type="text/css" href="bliquid.css"/>
+  <link id="PageSkin" rel="stylesheet" type="text/css" href="orderbot.css"/>
+
+  <meta charset="UTF-8"/>
+  <meta name="description" content="B-Liquid Cryptos Ltd Online Order Tool" />
+  <meta name="author" content="B-Liquid Cryptos Ltd. (BC)" />
+
+  <script src="libs/jquery.min.js"></script>
+  <script src="libs/BLDate.js"></script>
+  <script src="libs/BLAddrValidator.js"></script>
+
+  <script src="libs/pubsub.js"></script>
+</head>
+
+<body>
+<noscript>
+  <span class=warning>Page requires javascript. Please enable.</span>
+</noscript>
+
+<div class=widget>
+<p/>
+<center>
+<table cellspacing=10>
+  <tr>
+    <td align=right>
+      <img id=sendAmountArrow src='img/arrow.svg' width=55 height=30 />
+    </td>
+
+    <th align=right><span class=label>Client to send:</span></th>
+    <td><div id=ClientSendAmount></div></td>
+    <td align=left><div id=ClientSendCurrency></div></td>
+    <td><div id=ClientSendCurrencyFlag></div></td>
+  </tr>
+
+  <tr valign=center>
+    <td/>
+    <th align=right><span class=label>Client to pay B-Liquid by:</span></th>
+    <td><div id=CtxMethod></div></td>
+    <td/>
+    <td><div id=CtxMethodImage></div></td>
+  </tr>
+
+  <tr>
+    <td align=right></td>
+
+    <th align=right><span class=label>Market Rate:</span></th>
+    <td class=outline colspan=2><div id=MarketRate>&nbsp;</div></td>
+  </tr>
+
+  <tr>
+    <td align=right></td>
+    <th align=right><span class=label>Fees (CAD):</span></th>
+    <td class=outline colspan=2><div id=Fees>&nbsp;</div></td>
+  </tr>
+
+  <tr>
+    <td align=right></td>
+
+    <th align=right><span class=label>Client to receive:</span></th>
+    <td class=outline><div id=ClientReceiveAmount></div></td>
+    <td><div id=ClientReceiveCurrency></div></td>
+    <td><div id=ClientReceiveCurrencyFlag></div></td>
+  </tr>
+
+  <tr>
+    <td/>
+    <th align=right><span class=label>B-Liquid to pay client by:</span></th>
+    <td><div id=CrxMethod></div></td>
+    <td/>
+    <td><div id=CrxMethodImage></div></td>
+  </tr>
+
+  <tr>
+    <td align=right>
+      <img id=rxAddrArrow
+           src='img/arrow.svg'
+           width=55 height=30 />
+    </td>
+
+    <th align=right><span class=label>Client receive address:</span></th>
+    <td colspan=2><div id=ClientReceiveCoordsDiv></div></td>
+  </tr>
+
+  <tr>
+    <td align=right>
+      <img id=bookArrow
+           src='img/arrow.svg'
+           width=55 height=30 />
+    </td>
+
+    <td colspan=3 align=center style="font-family: initial;">
+      <div class=okbutton id=NextButton onclick="bookIt()">
+        <span class=label>BOOK THIS ORDER<br/>
+          <span class=finePrint>(see TERMS below)</span>
+        </span>
+      </div>
+    </td>
+  </tr>
+</table>
+</center>
+</div>
+<p/>
+<div class=finePrint>
+<b>TERMS:</b>
+<p/>
+1. <b>General:</b>
+<ol type=a>
+  <li>"Book" an order means B-Liquid Cryptos Ltd. will create a digital record
+      with the data from this page and direct the Client to a "Payment
+      Instructions" page.</li>
+  <li>Client initiates this agreement by sending payment to the B-Liquid
+      Cryptos Ltd. address according to our Payment Instructions.</li>
+  <li>Client agrees to send payment within the time limit mentioned in our
+      Payment Instructions.</li>
+  <li>Payments received late or missing the order reference or to the
+      wrong address or with an improper amount will not be accepted.</li>
+  <li>B-Liquid Cryptos Ltd. agrees to pay Client the agreed settlement amount
+      and currency within the time limit mentioned in our Payment
+      Instructions.</li>
+</ol>
+<p/>
+2. <b>Cash by Mail</b>: Orders will be recalculated according to the Market
+Rate in effect when payment arrives. Fees will not change. B-Liquid will not
+send coins by mail.
+<p/>
+3. <b>Order Limits</b>: B-Liquid can process orders with a Canadian-dollar
+equivalent value less than <b>CA$1000.00</b>
+<p/>
+4. <b>Market Rates</b>: B-Liquid continuously retrieves fresh rates from our
+market information provider(s). The rate used will be the most recent market
+rate in effect when B-Liquid Cryptos Ltd. receives the order.
+<p/>
+5. <b>Fees</b>: B-Liquid continously retrieves typical cryptocurrency
+transaction fees from our blockchain information provider(s). B-Liquid deducts
+these and/or other fees as required. B-Liquid charges a minimum fee of
+<b>CA$3.00</b> per transaction.
+<p/>
+6. <b>Payment to B-Liquid</b>: Client agrees to pay B-Liquid according to the
+instructions provided when the client books the order. Any fees incurred by
+the client for sending payment to B-Liquid are the sole responsibility of the
+client.
+<p/>
+7. <b>Exclusions</b>: B-Liquid is not responsible for client errors
+such as sending funds to the wrong address or failing to consider gas or mining
+fees. B-Liquid will make every effort to settle in a timely manner but
+is not responsible for delays or outages with blockchain or internet.
+<p/>
+8. <b>Settlement Time</b>: B-Liquid posts transactions with average mining or
+gas fees. The time required for confirmation will vary depending on current
+network and blockchain conditions. Payments via the banking system and/or
+depending on human action will generally complete within twelve (12)
+<i>business</i> hours. B-Liquid does not send payments under $3.00 CAD.
+<p/>
+9. <b>Business Hours</b>: Hours are Monday to Friday from 0800 to 1700 Pacific
+Time.
+<p/>
+10. <b>Privacy Policy</b>: B-Liquid Cryptos Ltd. is a FINTRAC-registered Money
+Services Business subject to the laws of Canada and British Columbia.
+<p/>
+B-Liquid may gather and retain the following data via our normal business
+interactions, in addition to the data items in the deal:
+<ol type=a>
+  <li>Timestamp and Client's IP address when accessing our site.</li>
+  <li>Client's receive address (blockchain, email address or bank account).</li>
+  <li>Blockchain address we used and date/time when we received payment.</li>
+  <li>Information we receive when receiving payment, such as the
+      sender's blockchain address or sending bank and account details.</li>
+  <li>Timestamp when we sent payment to Client's receive address.</li>
+  <li>Transaction hash for orders we fulfill with cryptocurrency.</li>
+  <li>Receipt(s) (such as transaction hash or e-transfer reference) to prove
+      we sent payment.</li>
+  <li>For Monero, the transaction view key to prove that we sent XMR.</li>
+  <li>Any correspondance between Client and B-Liquid.</li>
+</ol>
+<p/>
+11. <b>Coin History</b>: B-Liquid Cryptos Ltd. purchases cryptocurrency from
+multiple regulated exchanges. B-Liquid also purchases from other sources
+including the general public. B-Liquid does not employ mixers or masking tools.
+<p/>
+12. <b>Legal Authority</b>: B-Liquid Cryptos Ltd. is subject to the law of
+Canada and British Columbia.
+</p>
+</div>
+
+<script src="./orderbot.js"></script>
+</body>
+</html>

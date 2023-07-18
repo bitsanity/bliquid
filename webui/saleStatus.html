@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>B-LIQUID Sale Status</title>
+  <link id="PageSkin" rel="stylesheet" type="text/css" href="bliquid.css"/>
+  <meta charset="UTF-8"/>
+  <meta name="description" content="B-Liquid Client Payment Instructions" />
+  <meta name="author" content="B-Liquid Cryptos Ltd. (BC)" />
+  <meta name="keywords"
+    content="Cryptocurrency,B-Liquid,BC,Victoria,Client,Sale,Status"/>
+
+  <script src="libs/jquery.min.js"></script>
+  <script src="libs/BLDate.js"></script>
+  <script src="saleStatus.js"></script>
+</head>
+
+<body>
+<div class=header>
+<img height=80 width=80 src=img/logo.svg></img>
+</div>
+<p/>
+
+<center>
+<noscript>
+  <span class=warning>Page requires javascript. Please enable.</span>
+</noscript>
+
+<span class=label>Status for Order Ref:</span>&nbsp;
+<span id=SaleID class=data>[order reference]</span>
+<p>
+<div class=data>
+<table>
+<tr>
+  <td align=right class=label>Submitted:</td>
+  <td id=SubmitStatus></td>
+</tr>
+<tr>
+  <td align=right class=label>Cancelled:</td>
+  <td id=CancelStatus></td>
+</tr>
+<tr>
+  <td align=right class=label>Payment Received:</td>
+  <td id=CtxReceivedStatus></td>
+</tr>
+<tr>
+  <td align=right class=label>Settlement Sent:</td>
+  <td id=CrxSentStatus></td>
+</tr>
+</table>
+<p/>
+<span id=Status>&nbsp;</span>
+</center>
+</div>
+<p>
+<div class=footer>
+<span class=label>
+  <font size=+1 color=white>- THANK YOU For Your Order -</font>
+</span>
+</div>
+
+<script type="text/javascript">
+  let args = window.location.href.split('?')
+  if (args && args[1]) {
+    let pair = args[1].split('=')
+    if (pair && pair[0] === "id") {
+      $("#SaleID").text( pair[1] )
+      fetchStatus( pair[1] )
+    }
+  }
+</script>
+
+</body>
+</html>
+
+

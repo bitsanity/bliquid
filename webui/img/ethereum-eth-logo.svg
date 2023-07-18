@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Creator: CorelDRAW 2019 (64-Bit) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xml:space="preserve"
+   width="1315.0334"
+   height="1315.0334"
+   version="1.1"
+   viewBox="0 0 1315.0335 1315.0334"
+   id="svg900"
+   sodipodi:docname="ethereum-eth-logo.svg"
+   style="clip-rule:evenodd;fill-rule:evenodd;image-rendering:optimizeQuality;shape-rendering:geometricPrecision;text-rendering:geometricPrecision"
+   inkscape:version="0.92.5 (2060ec1f9f, 2020-04-08)"><metadata
+   id="metadata906"><rdf:RDF><cc:Work
+       rdf:about=""><dc:format>image/svg+xml</dc:format><dc:type
+         rdf:resource="http://purl.org/dc/dcmitype/StillImage" /></cc:Work></rdf:RDF></metadata><defs
+   id="defs904" /><sodipodi:namedview
+   pagecolor="#ffffff"
+   bordercolor="#666666"
+   borderopacity="1"
+   objecttolerance="10"
+   gridtolerance="10"
+   guidetolerance="10"
+   inkscape:pageopacity="0"
+   inkscape:pageshadow="2"
+   inkscape:window-width="640"
+   inkscape:window-height="480"
+   id="namedview902"
+   showgrid="false"
+   inkscape:zoom="0.65"
+   inkscape:cx="659.05516"
+   inkscape:cy="578.62425"
+   inkscape:current-layer="svg900" />
+ <circle
+   style="fill:#ffffff;fill-opacity:1;fill-rule:evenodd;stroke:#1a1a1a;stroke-width:37.79527664;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+   id="path908"
+   cx="657.51672"
+   cy="657.51672"
+   r="638.61908" /><g
+   id="Layer_x0020_1"
+   transform="translate(265.33172,18.826724)">
+  <metadata
+   id="CorelCorpID_0Corel-Layer" />
+  <g
+   id="_1421394342400">
+   <g
+   id="g896">
+    <polygon
+   points="392.07,882.29 784.13,650.54 392.07,0 383.5,29.11 383.5,873.74 "
+   id="polygon884"
+   style="fill:#343434;fill-rule:nonzero" />
+    <polygon
+   points="392.07,0 0,650.54 392.07,882.29 392.07,472.33 "
+   id="polygon886"
+   style="fill:#8c8c8c;fill-rule:nonzero" />
+    <polygon
+   points="392.07,1277.38 784.37,724.89 392.07,956.52 387.24,962.41 387.24,1263.28 "
+   id="polygon888"
+   style="fill:#3c3c3b;fill-rule:nonzero" />
+    <polygon
+   points="0,724.89 392.07,1277.38 392.07,956.52 "
+   id="polygon890"
+   style="fill:#8c8c8c;fill-rule:nonzero" />
+    <polygon
+   points="392.07,472.33 392.07,882.29 784.13,650.54 "
+   id="polygon892"
+   style="fill:#141414;fill-rule:nonzero" />
+    <polygon
+   points="392.07,472.33 0,650.54 392.07,882.29 "
+   id="polygon894"
+   style="fill:#393939;fill-rule:nonzero" />
+   </g>
+  </g>
+ </g>
+</svg>
