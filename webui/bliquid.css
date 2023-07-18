@@ -1,0 +1,41 @@
+body {
+  background-color: white;
+}
+
+th, td {
+  padding: 10px;
+}
+
+.label {
+  font-weight: bold;
+}
+
+.header, .footer, .widget, .liquidpool {
+  text-align: center;
+  border: 3px double black;
+  border-radius: 15px;
+  padding: 20px 20px 20px 20px;
+  color: white;
+  font-weight: bold;
+  background-color: teal;
+}
+
+.widget, .liquidpool {
+  background-color: white;
+  color: black;
+}
+
+.liquidpool {
+  padding: 10px 0px 0px 0px;
+}
+
+.data {
+  color: darkgreen;
+  font-family: Consolas,"courier new",monospace;
+  white-space: pre;
+}
+
+.highlit {
+  font-weight: bold;
+  background-color: yellow;
+}
