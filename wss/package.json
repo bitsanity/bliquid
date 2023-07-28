@@ -5,9 +5,9 @@
   "description": "B-Liquid WebSocket Server",
   "main": "index.html",
   "dependencies": {
-    "lokijs": "^1.5.10",
-    "secp256k1": "^4.0.2",
     "aes-js": "^3.1.0",
-    "base64-js": "^1.5.0"
+    "base64-js": "^1.5.0",
+    "lokijs": "^1.5.12",
+    "secp256k1": "^4.0.2"
   }
 }

@@ -1,14 +1,22 @@
 const fs = require( 'fs' )
-const http = require( 'node:http' )
-const https = require( 'https' )
 const wss = require( 'ws' )
 const ecies = require( 'eciesjs' )
-
 const bitcoind = require( './bitcoind.js' )
+
+const readline = require( 'readline' ).createInterface( {
+  input: process.stdin,
+  output: process.stdout
+} )
 
 const PORT = 8888
 const SERVERLOG = './server.txt'
 
+var HELLOMSG = {
+  jsonrpc: "2.0",
+  method: "hello",
+  params: [],
+  id: 0
+}
 const ERRORRESPONSE = {
   jsonrpc: "2.0",
   error: {
@@ -65,13 +73,18 @@ function log( whichlog, msg ) {
 
 // START
 
-if (process.argc != 4) {
-  log( serverLog, 'usage $ node <file.js> <priv> <pub>' )
-  process.exit( 1 )
-}
-
-var privkey = ecies.PrivateKey.fromHex( process.argv[1] )
-var clntpub = ecies.PublicKey.fromHex( process.argv[2] )
+var privkey = null
+readline.question( 'privkey: ', (pk) => {
+  try {
+    privkey = ecies.PrivateKey.fromHex( pk )
+    HELLOMSG.params = [ privkey.publicKey.toHex() ]
+    log( null, 'pubkey: ' + privkey.publicKey.toHex() )
+  }
+  catch( e ) {
+    log( null, e )
+    process.exit( 1 )
+  }
+} )
 
 var serverLog = fs.createWriteStream( SERVERLOG, { flags: 'a' } )
 log( serverLog, '\n\t********** hello\n' )
@@ -82,6 +95,8 @@ const wsServer = new wss.Server( {
 } )
 
 wsServer.on( 'connection', (ws, req) => {
+
+  ws.send( HELLOMSG )
 
   ws.on( 'message', black => {
 
@@ -121,5 +136,5 @@ wsServer.on( 'connection', (ws, req) => {
   }
 } )
 
-console.log( 'B-Liquid backend server is running on port ', PORT )
+console.log( 'B-Liquid blockchain gateway running on port ', PORT )
 

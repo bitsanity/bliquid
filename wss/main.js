@@ -1,7 +1,5 @@
 //
-// 1. Periodically fetches current rates for the cryptocurrency instrument
-//    pairs we like
-//
+// 1. Polls current rates in the background
 // 2. Provides services for our webapps including:
 //
 //      a. Get the latest fetched cryptocurrency rates
@@ -10,15 +8,20 @@
 //      d. Get order details given its ID (support, compliance)
 //      e. Get details of all orders for a client receive address (compliance)
 
-const crypto = require( 'crypto' )
 const fs = require( 'fs' )
-const https = require( 'https' )
+const crypto = require( 'crypto' )
+const ecies = require( 'eciesjs' )
 const wss = require( 'ws' )
+
+const readline = require( 'readline' ).createInterface( {
+  input: process.stdin,
+  output: process.stdout
+} )
 
 const bliquiddb = require( './bliquiddb.js' )
 
 // hack to do #include file in node.js ... doesnt work with 'use strict'
-// the target is not a module as it's shared with browser environment
+// target is not a module because shared with browser environment
 eval( fs.readFileSync('../common/BLDate.js').toString() )
 
 const PORT = 8443
@@ -28,6 +31,13 @@ const RATESFILE = './feeds/rates.json'
 const NETFEESFILE = './feeds/netfees.json'
 
 const MXPORT = 9000
+
+var HELLOMSG = {
+  jsonrpc: "2.0",
+  method: "hello",
+  params: [], // pubkey placed here on startup
+  id: 0
+}
 
 const ERRORRESPONSE = {
   jsonrpc: "2.0",
@@ -42,6 +52,22 @@ const BLANKRESPONSE = {
   jsonrpc: "2.0",
   result: {},
   id: 0
+}
+
+function blackStrToRedObj( blackstr ) {
+  let redobj
+
+  try {
+    let redstr = ecies.decrypt( privkey, blackstr )
+    redobj = JSON.parse( redstr )
+  } catch( pe ) { throw 'Invalid message' }
+
+  return redobj
+}
+
+function redObjToBlackStr( clntpub, redobj ) {
+  let redstr = JSON.stringify(redobj)
+  return ecies.encrypt( clntpub, redstr )
 }
 
 // read from a local file that gets written periodically by some other process
@@ -487,9 +513,6 @@ function mxPNLResponse( reqparams, reqid ) {
   return response
 }
 
-var accessLog = fs.createWriteStream( ACCESSLOG, { flags: 'a' } )
-var serverLog = null
-
 function log( whichlog, msg ) {
   if (whichlog)
     whichlog.write( timestamp() + ' ' + msg )
@@ -497,9 +520,23 @@ function log( whichlog, msg ) {
     console.log( timestamp() + ' ' + msg )
 }
 
+var accessLog = fs.createWriteStream( ACCESSLOG, { flags: 'a' } )
+var serverLog = fs.createWriteStream( SERVERLOG, { flags: 'a' } )
+
+var privkey = null
+readline.question( 'privkey: ', (pk) => {
+  try {
+    privkey = ecies.PrivateKey.fromHex( pk )
+    HELLOMSG.params = [ privkey.publicKey.toHex() ]
+    log( null, 'pubkey: ' + privkey.publicKey.toHex() )
+  }
+  catch( e ) {
+    log( null, e )
+    process.exit( 1 )
+  }
+} )
+
 const wsServer = new wss.Server( {
-  //cert: fs.readFileSync( '/path/to/cert.pem' ),
-  //key: fs.readFileSync( '/path/to/key.pem' ),
   port: PORT,
   noServer: true
 } )
@@ -507,6 +544,8 @@ const wsServer = new wss.Server( {
 wsServer.on( 'connection', (ws, req) => {
   let clientip = req.socket.remoteAddress
   log( accessLog, clientip + '\n' )
+
+  ws.send( HELLOMSG )
 
   ws.on( 'message', data => {
     try {
@@ -619,7 +658,15 @@ wsMXServer.on( 'connection', (ws, req) => {
 
 console.log( 'MX WebSocket server is running on port ', MXPORT )
 
-let dbpass = Buffer.from( "paradichlorobenzene" )
-let hashpass = crypto.createHash('sha256').update(dbpass).digest()
-bliquiddb.init( hashpass )
+readline.question( 'dbpass: ', (pass) => {
+  try {
+    let dbpass = Buffer.from( pass )
+    let hashpass = crypto.createHash('sha256').update(dbpass).digest()
+    bliquiddb.init( hashpass )
+  }
+  catch( e ) {
+    log( e )
+    process.exit( 1 )
+  }
+} )
 
