@@ -25,12 +25,12 @@ const bliquiddb = require( './bliquiddb.js' )
 eval( fs.readFileSync('../common/BLDate.js').toString() )
 
 const PORT = 8443
+const MXPORT = 9000
+
 const ACCESSLOG = './access.txt'
 const SERVERLOG = './server.txt'
 const RATESFILE = './feeds/rates.json'
 const NETFEESFILE = './feeds/netfees.json'
-
-const MXPORT = 9000
 
 var HELLOMSG = {
   jsonrpc: "2.0",
@@ -520,15 +520,48 @@ function log( whichlog, msg ) {
     console.log( timestamp() + ' ' + msg )
 }
 
+function getGatewayPubkey() {
+  if (gwpubkey) return
+
+  let socket = new wss.WebSocket( gwurl )
+
+  socket.addEventListener( 'message', msg => {
+    console.log( msg.data )
+    let rsp = JSON.parse( msg.data )
+    if (rsp.error) {
+      log( null, 'gateway error: ' + rsp.error.message )
+      return
+    }
+    if (rsp.method && rsp.method === 'hello') {
+      gwpubkey = rsp.params[0]
+      log( null, 'gateway pubkey: ' + rsp.params[0] )
+    }
+  } )
+}
+
 var accessLog = fs.createWriteStream( ACCESSLOG, { flags: 'a' } )
 var serverLog = fs.createWriteStream( SERVERLOG, { flags: 'a' } )
 
 var privkey = null
-readline.question( 'privkey: ', (pk) => {
+var gwurl = null
+var gwpubkey = null
+
+readline.question( '\nwss (my) privkey: ', (pk) => {
   try {
     privkey = ecies.PrivateKey.fromHex( pk )
     HELLOMSG.params = [ privkey.publicKey.toHex() ]
-    log( null, 'pubkey: ' + privkey.publicKey.toHex() )
+    log( null, 'my pubkey: ' + privkey.publicKey.toHex() )
+
+    readline.question( '\ndbpassword: ', (pass) => {
+      let dbpass = Buffer.from( pass )
+      let hashpass = crypto.createHash('sha256').update(dbpass).digest()
+      bliquiddb.init( hashpass )
+
+      readline.question( '\nGateway URL: ', (url) => {
+        gwurl = url
+        getGatewayPubkey()
+      } )
+    } )
   }
   catch( e ) {
     log( null, e )
@@ -537,8 +570,7 @@ readline.question( 'privkey: ', (pk) => {
 } )
 
 const wsServer = new wss.Server( {
-  port: PORT,
-  noServer: true
+  port: PORT
 } )
 
 wsServer.on( 'connection', (ws, req) => {
@@ -587,11 +619,8 @@ wsServer.on( 'connection', (ws, req) => {
   }
 } )
 
-console.log( 'WebSocket server is running on port ', PORT )
-
 const wsMXServer = new wss.Server( {
-  port: MXPORT,
-  noServer: true
+  port: MXPORT
 } )
 
 wsMXServer.on( 'connection', (ws, req) => {
@@ -653,20 +682,6 @@ wsMXServer.on( 'connection', (ws, req) => {
 
   ws.onerror = () => {
     log( serverLog, 'mx socket error' )
-  }
-} )
-
-console.log( 'MX WebSocket server is running on port ', MXPORT )
-
-readline.question( 'dbpass: ', (pass) => {
-  try {
-    let dbpass = Buffer.from( pass )
-    let hashpass = crypto.createHash('sha256').update(dbpass).digest()
-    bliquiddb.init( hashpass )
-  }
-  catch( e ) {
-    log( e )
-    process.exit( 1 )
   }
 } )
 

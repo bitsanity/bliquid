@@ -31,11 +31,6 @@ var BLDate = (function() {
             ((crunch) ? 'z' : ' UTC')
   }
 
-  return {
-    FOURHOURSMS : FOURHOURSMS,
-    toReadableDate : toReadableDate
-  }
-
   function timestamp() {
     let now = new Date()
     let mon = now.getUTCMonth() + 1
@@ -47,6 +42,13 @@ var BLDate = (function() {
     let min = now.getUTCMinutes()
     if (min < 10) min = '0' + min
     return '' + now.getUTCFullYear() + mon + day + hr + min
+  }
+
+  return {
+    FOURHOURSMS : FOURHOURSMS,
+    MONTHS : MONTHS,
+    timestamp : timestamp,
+    toReadableDate : toReadableDate
   }
 
 })();

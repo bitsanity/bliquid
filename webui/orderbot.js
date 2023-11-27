@@ -1,19 +1,3 @@
-const RATESURL = "ws://localhost:8443"
-const RATESREQ = {
-  jsonrpc: "2.0",
-  method: "rates",
-  params: [],
-  id: 0
-}
-
-const FEESURL = "ws://localhost:8443"
-const FEESREQ = {
-  jsonrpc: "2.0",
-  method: "fees",
-  params: [],
-  id: 0
-}
-
 const BOOKITURL = "ws://localhost:8443"
 const BOOKITREQ = {
   jsonrpc: "2.0",
@@ -23,96 +7,12 @@ const BOOKITREQ = {
 }
 
 var ctx, crx
-var Rates = {}
-var Fees = {}
 
 function initOrderbot() {
   $('#rxAddrArrow').hide()
   $('#bookArrow').hide()
   $('#ClientReceiveAddress').val("")
   getRates() // fetch from server and update Rates variable
-}
-
-function toCAD( amt, curr ) {
-  let result = amt
-
-  if (curr === 'USD')
-    result = Number.parseFloat(amt) / Number.parseFloat(Rates.USDCAD)
-  else if (curr == 'BTC')
-    result = Number.parseFloat(amt) * Number.parseFloat(Rates.BTCCAD)
-  else if (curr == 'ETH')
-    result = Number.parseFloat(amt) * Number.parseFloat(Rates.ETHCAD)
-  else if (curr == 'XMR')
-    result = Number.parseFloat(amt) * Number.parseFloat(Rates.XMRCAD)
-  else if (curr == 'DAI')
-    result = Number.parseFloat(amt) * Number.parseFloat(Rates.DAICAD)
-  else if (curr == 'USDC')
-    result = Number.parseFloat(amt) * Number.parseFloat(Rates.USDCCAD)
-
-  result = Math.floor(result * 100.0) / 100.0
-  return result
-}
-
-function cadToCurr( amt, curr ) {
-  let result = amt
-
-  if (curr === 'CAD') {
-    result = Math.floor( result * 100.0 ) / 100.0
-  } else if (curr === 'USD') {
-    result = Number.parseFloat(amt) / Number.parseFloat(Rates.USDCAD)
-    result = Math.floor( result * 100.0 ) / 100.0
-  } else if (curr === 'GBP') {
-    result = Number.parseFloat(amt) / Number.parseFloat(Rates.GBPCAD)
-    result = Math.floor( result * 100.0 ) / 100.0
-  } else if (curr === 'EUR') {
-    result = Number.parseFloat(amt) / Number.parseFloat(Rates.EURCAD)
-    result = Math.floor( result * 100.0 ) / 100.0
-  } else if (curr == 'BTC') {
-    result = Number.parseFloat(amt) / Number.parseFloat(Rates.BTCCAD)
-    result = Math.floor( result * 100000000.0 ) / 100000000.0
-  } else if (curr == 'ETH') {
-    result = Number.parseFloat(amt) / Number.parseFloat(Rates.ETHCAD)
-    result = Math.floor( result * 1000000.0 ) / 1000000.0
-  } else if (curr == 'XMR') {
-    result = Number.parseFloat(amt) / Number.parseFloat(Rates.XMRCAD)
-    result = Math.floor( result * 1000000.0 ) / 1000000.0
-  } else if (curr == 'USDC') {
-    result = Number.parseFloat(amt) / Number.parseFloat(Rates.USDCCAD)
-    result = Math.floor( result * 10000.0 ) / 10000.0
-  } else if (curr == 'DAI') {
-    result = Number.parseFloat(amt) / Number.parseFloat(Rates.DAICAD)
-    result = Math.floor( result * 10000.0 ) / 10000.0
-  }
-
-  return result
-}
-
-function getRates() {
-  let socket = new WebSocket( RATESURL )
-
-  socket.addEventListener( 'open', (e) => {
-    socket.send( JSON.stringify(RATESREQ) )
-  } )
-
-  socket.addEventListener( 'message', (msg) => {
-    let rsp, pair
-    try {
-      rsp = JSON.parse( msg.data )
-      Rates = rsp.result
-      pair = (ctx === 'CAD' || ctx === 'USD' || ctx === 'GBP' || ctx === 'USD')
-             ? crx + ctx
-             : ctx + crx
-
-      let tstamp = Rates.timestamp
-
-      $('#MarketRate').html(
-        pair + ' = ' + Rates[pair] + ' @ ' + BLDate.toReadableDate( tstamp )
-      )
-    } catch( e ) {
-      alert( 'invalid response: ' + e )
-      $('#MarketRate').html( pair + ' ERROR ' + e.toString() )
-    }
-  } )
 }
 
 function getFees() {
@@ -125,51 +25,30 @@ function getFees() {
     return 0
   }
 
-  let params = [ ctxAmount, ctx, crx, $('#CrxMethodSelect').val() ]
-  let req = JSON.parse( JSON.stringify(FEESREQ) )
-  req.params = params
-
-  let socket = new WebSocket( FEESURL )
-
-  socket.addEventListener( 'open', (e) => {
-    socket.send( JSON.stringify(req) )
-  } )
-
-  socket.addEventListener( 'message', (msg) => {
-    let rsp
-
-    try {
-      rsp = JSON.parse( msg.data )
-      if (rsp.error) throw rsp.error.message
-
-      Fees = rsp.result.fees // retained for when client submits order
-
-      let contents = '<table cellspacing=0 cellpadding=0>'
-      Object.keys(Fees).forEach( (key,index) => {
-        contents += '<tr>' +
-          '<td align=right style="padding:0">' + key + ':&nbsp;</td>' +
-          '<td align=right style="padding:0">' + Fees[key] + '</td></tr>'
-      } )
-      contents += '</table>'
-      $('#Fees').html( contents )
-
-      // client to receive:  toCAD(amount * rate) - fees (in CAD)
-      let toclientcad = toCAD( ctxAmount, ctx ) - rsp.result.total
-
-      if (toclientcad < 0) {
-        $('#ClientReceiveAmount').html( "0.00" )
-      }
-      else {
-        let toclientamt = cadToCurr( toclientcad, crx )
-        $('#ClientReceiveAmount').html( toclientamt )
-      }
-    } catch( e ) {
-      alert( 'invalid response: ' + e )
-      $('#Fees').html( ' ERROR: ' + e.toString() )
-      $('#ClientReceiveAmount').html( '0.00' )
-    }
-  } )
+  WSSCX.getFees( ctxAmount, ctx, crx, $('#CrxMethodSelect').val() )
 }
+
+PubSub.subscribe( 'Fees', rsp => {
+  let contents = '<table cellspacing=0 cellpadding=0>'
+  Object.keys(rsp.fees).forEach( (key,index) => {
+    contents += '<tr>' +
+      '<td align=right style="padding:0">' + key + ':&nbsp;</td>' +
+      '<td align=right style="padding:0">' + rsp.fees[key] + '</td></tr>'
+  } )
+  contents += '</table>'
+  $('#Fees').html( contents )
+
+  // client to receive:  toCAD(amount * rate) - fees (in CAD)
+  let toclientcad = toCAD( ctxAmount, ctx ) - rsp.total
+
+  if (toclientcad < 0) {
+    $('#ClientReceiveAmount').html( "0.00" )
+  }
+  else {
+    let toclientamt = cadToCurr( toclientcad, crx )
+    $('#ClientReceiveAmount').html( toclientamt )
+  }
+)
 
 function bookIt() {
   let sendAmt = $('#ClientSendAmountInput').val()
