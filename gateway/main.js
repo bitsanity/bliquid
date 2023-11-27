@@ -1,6 +1,9 @@
 const fs = require( 'fs' )
+const crypto = require( 'node:crypto' )
 const wss = require( 'ws' )
 const ecies = require( 'eciesjs' )
+const EC = require( 'elliptic' ).ec
+var ec = new EC( 'secp256k1' )
 const bitcoind = require( './bitcoind.js' )
 
 const readline = require( 'readline' ).createInterface( {
@@ -11,7 +14,7 @@ const readline = require( 'readline' ).createInterface( {
 const PORT = 8888
 const SERVERLOG = './server.txt'
 
-var HELLOMSG = {
+var REDHELLOMSG = {
   jsonrpc: "2.0",
   method: "hello",
   params: [],
@@ -32,41 +35,29 @@ const BLANKRESPONSE = {
   id: 0
 }
 
-function blackStrToRedObj( blackstr ) {
-  let redobj
+function blackToRed( blackstr ) {
+  let result
 
   try {
-    let redstr = ecies.decrypt( privkey, blackstr )
-    redobj = JSON.parse( redstr )
-  } catch( pe ) { throw 'Invalid message' }
+    let red = ecies.decrypt( privkey, blackstr )
+    result = JSON.parse( red )
+  }
+  catch( pe ) {
+    throw 'Invalid message'
+  }
 
-  return redobj
+  return result
 }
 
-function redObjToBlackStr( redobj ) {
+function redToBlack( clntpub, redobj ) {
   let redstr = JSON.stringify(redobj)
   return ecies.encrypt( clntpub, redstr )
-}
-
-function validResponse( redobj, reqid ) {
-  let response = JSON.parse( JSON.stringify(BLANKRESPONSE) )
-  response.result = redobj
-  response.id = reqid
-  return response
-}
-
-function errorResponse( errorCode, strErrorMessage, reqid ) {
-  let response = JSON.parse( JSON.stringify(ERRORRESPONSE) )
-  response.id = reqid
-  response.error.code = errorCode
-  response.error.message = strErrorMessage
-  return response
 }
 
 function log( whichlog, msg ) {
   let now = Date.now()
   if (whichlog)
-    whichlog.write( now + ' ' + msg )
+    whichlog.write( now + ' ' + msg + '\n' )
   else
     console.log( now + ' ' + msg )
 }
@@ -74,11 +65,17 @@ function log( whichlog, msg ) {
 // START
 
 var privkey = null
-readline.question( 'privkey: ', (pk) => {
+var wsspubkey = null
+readline.question( 'gateway (my) privkey: ', (pk) => {
   try {
     privkey = ecies.PrivateKey.fromHex( pk )
-    HELLOMSG.params = [ privkey.publicKey.toHex() ]
-    log( null, 'pubkey: ' + privkey.publicKey.toHex() )
+    REDHELLOMSG.params = [ privkey.publicKey.toHex() ]
+    log( null, 'gateway pubkey is: ' + privkey.publicKey.toHex() )
+
+    readline.question( 'wss pubkey: ', (pub) => {
+    wsspubkey = ecies.PublicKey.fromHex( pub )
+    log( null, 'wss pubkey: ' + wsspubkey.toHex() )
+    } )
   }
   catch( e ) {
     log( null, e )
@@ -87,23 +84,48 @@ readline.question( 'privkey: ', (pk) => {
 } )
 
 var serverLog = fs.createWriteStream( SERVERLOG, { flags: 'a' } )
-log( serverLog, '\n\t********** hello\n' )
+log( serverLog, 'start' )
 
 const wsServer = new wss.Server( {
-  port: PORT,
-  noServer: true
+  port: PORT
 } )
 
 wsServer.on( 'connection', (ws, req) => {
 
-  ws.send( HELLOMSG )
+  console.log( 'sending red hello' )
+  ws.send( JSON.stringify(REDHELLOMSG) )
 
-  ws.on( 'message', black => {
+  ws.on( 'message', blackobj => {
+
+    console.log( 'black:\n' + JSON.stringify(blackobj,null,2) )
 
     let redobj
 
     try {
-      redobj = blackStrToRedObj( black )
+      if (!blackobj.id) {
+        throw 'need client pubkey'
+      }
+
+      if (!blackobj.params || blackobj.params.length != 2) {
+        throw 'need msg and sig params'
+      }
+
+      // confirm param[1] is ecdsa sig of param[0] and signed by pubkey
+      let msg = Buffer.from( blackobj.params[0], 'hex' )
+      let msghash = crypto.createHash('sha256').update(msg).digest()
+      let sig = Buffer.from( blackobj.params[1], 'hex' )
+
+      let clntpub = ec.keyFromPublic( blackobj.id )
+      if (!ec.verify(msghash, sig, clntpub)) {
+        throw 'invalid signature for specified pubkey'
+      }
+
+      // confirm pubkey is on our access control list
+      if (wsspubkey.toHex().toLowerCase() !== blackobj.id.toLowerCase()) {
+        throw 'unrecognized client'
+      }
+
+      redobj = blackToRed( blackobj.params[0] )
       log( serverLog, JSON.stringify(redobj,null,2) )
 
       if (    !redobj.jsonrpc
@@ -115,19 +137,23 @@ wsServer.on( 'connection', (ws, req) => {
 
       if (redobj.method === 'btc.balance') {
         bitcoind.balance( redobj.params[0], redobj.id, resobj => {
-          ws.send( redObjToBlackStr(validResponse(resobj, redobj.id)) )
+          ws.send( redToBlack(validResponse(resobj, redobj.id)) )
         } )
       }
-      else if (redobj.method === 'newBTCAddr') {
+      else if (redobj.method === 'btc.newaddr') {
       }
-      else if (redobj.method === 'sendBTC') {
+      else if (redobj.method === 'btc.send') {
       }
       else {
-        throw errorResponse(400, 'method not found', redobj.id)
+        throw 'method not found'
       }
     }
     catch( e ) {
-      ws.send( redObjToBlackStr(errorResponse(500,e.toString(), redobj.id)) )
+      let errobj = JSON.parse( JSON.stringify(ERRORRESPONSE) )
+      errobj.error.code = 500
+      errobj.error.message = e.toString()
+      errobj.id = redobj.id
+      ws.send( redToBlack(errobj) )
     }
   } )
 
@@ -135,6 +161,4 @@ wsServer.on( 'connection', (ws, req) => {
     log( serverLog, 'socket error' )
   }
 } )
-
-console.log( 'B-Liquid blockchain gateway running on port ', PORT )
 
