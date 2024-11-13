@@ -1,6 +1,6 @@
 const fs = require( 'fs' )
 const loki = require( 'lokijs' )
-const blefa = require( './blefa.js' ) // bit-liquid's encrypted files adapter
+const blefa = require( './blefa.js' )
 const crypto = require( 'crypto' )
 
 const FULLDAYMS = 1000 * 60 * 60 * 24
