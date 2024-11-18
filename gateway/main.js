@@ -261,9 +261,16 @@ wsServer.on( 'connection', (ws, req) => {
           redobj.params[0].amount,
           redobj.params[0].currency,
           redobj.params[0].rate,
+          redobj.params[0].fees,
           redobj.params[0].source,
           redobj.params[0].ref )
       }
+      else if (redobj.meth === 'mxgetpurchases') {
+        resobj = bliquiddb.addPurchase(
+          redobj.params[0].fromtime,
+          redobj.params[0].totime,
+          redobj.params[0].channel,
+          redobj.params[0].curr )
       else if (redobj.meth === 'mxaddloss') {
         resobj = bliquiddb.addLoss(
           redobj.params[0].channel,

@@ -88,13 +88,16 @@ module.exports.getNotes = function( saleid ) {
              .data()
 }
 
-module.exports.addPurchase = function( toChan, amt, curr, rate, source, ref ) {
+module.exports.addPurchase =
+  function( toChan, amt, curr, rate, fees, source, ref ) {
+
   let purch = {
     Added : Date.now(),
     Channel : toChan,
     Amount : amt,
     Curr : curr,
     Rate : rate,
+    Fees : fees,
     Source : source,
     Ref : ref
   }
@@ -127,7 +130,7 @@ module.exports.addSale = function(
   // chances of a clash are super tiny but check anyway...
   let sale = null, giveup = 0, id
   while (giveup++ < 3) {
-    let rndbuff = crypto.randomBytes( 5 )
+    let rndbuff = crypto.randomBytes( 8 )
     id = rndbuff.toString( 'hex' )
     sale = module.exports.getSale( id )
     if (!sale || sale.length == 0)
@@ -154,6 +157,7 @@ module.exports.addSale = function(
     CrxCurr : crxcurr,
     CrxCoords : crxCoords,
     CrxSent : 0,
+    CrxFeePaid = 0,
     XMRViewKey : "TBD",
     CrxRef : "TBD"
   }
@@ -247,12 +251,13 @@ module.exports.ctxReceived = function( saleid, ctxref ) {
   return { 'Received' : sale.CtxReceived }
 }
 
-module.exports.crxSent = function( saleid, crxref, xmrviewkey="" ) {
+module.exports.crxSent = function( saleid, crxref, feepaidcad, xmrviewkey="" ) {
   let sale = module.exports.getSale( saleid )
   if (!sale) throw 'invalid saleid'
   if (sale.CrxSent != 0) throw 'Settlement already sent'
   sale.CrxSent = Date.now()
   sale.CrxRef = crxref
+  sale.CrxFeePaid = feepaidcad
   sale.XMRViewKey = xmrviewkey
   BLDB.getCollection('SALES').update( sale )
   return { 'Sent' : sale.CrxSent }
@@ -420,8 +425,8 @@ module.exports.inventory = function( chan ) {
   return sums
 }
 
-//             OUTPUTS ≡ SETTLEMENT & LOSSES  (non-CAD-currency going out)
-//              INPUTS ≡ PAYMENTS & PURCHASES (non-CAD-currency coming in)
+//             OUTPUTS ≡ SETTLEMENT & LOSSES & FEESPAID
+//              INPUTS ≡ PAYMENTS & PURCHASES
 //
 //   Sale.CapitalGains =   Output.CADEquivAmt
 //                       - (Output.Amount / Corresponding-Input.Rate)
@@ -435,7 +440,8 @@ module.exports.calcPnL = function( chan, curr, fromst=0, tost=Date.now() )
   let ins = [],
       outs = [],
       sumGains = 0.0,
-      sumOurFees = 0.0
+      sumOurFees = 0.0,
+      sumFeesPaid = 0.0
 
   let purchases = BLDB.getCollection('PURCHASES')
                  .chain()
@@ -463,6 +469,8 @@ module.exports.calcPnL = function( chan, curr, fromst=0, tost=Date.now() )
 
     console.log( 'purchase/in:\n' + JSON.stringify(it) )
     ins.push( it )
+
+    sumFeesPaid += Number.parseFloat( pu.Fees ) // in CAD
   } )
 
   let sales = BLDB.getCollection('SALES')
@@ -515,6 +523,17 @@ module.exports.calcPnL = function( chan, curr, fromst=0, tost=Date.now() )
       ins.push( it )
       console.log( 'considering purchase by sale in:\n' + JSON.stringify(it) )
     }
+
+    outs.push( sa.CrxFeePaid ) // actual miner fee paid
+    outs.push( {
+      Type : "LOSS", // for the summation done below
+      Timestamp : sa.CrxSent,
+      Amount : sa.CrxAmount,
+      Rate : sa.Rate,
+      CADEquivAmt : cadequiv
+    } )
+
+    sumFeesPaid += Number.parseFloat( sa.CrxFeePaid )
 
     let ourfee = sa.Fees.fees[module.exports.BLIQUIDFEENAME].replace('$','')
     sumOurFees += Number.parseFloat( ourfee )
@@ -589,7 +608,8 @@ module.exports.calcPnL = function( chan, curr, fromst=0, tost=Date.now() )
   } )
 
   let result = { gains: Math.floor(gains * 100)/100,
-                 fees: sumOurFees }
+                 ourFees: sumOurFees,
+                 feesPaid: sumFeesPaid }
 
   console.log( 'returning: ' + JSON.stringify(result) )
   return result
