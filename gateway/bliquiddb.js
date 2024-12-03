@@ -1,6 +1,6 @@
 const fs = require( 'fs' )
 const loki = require( 'lokijs' )
-const blefa = require( './blefa.js' ) // bit-liquid's encrypted files adapter
+const blefa = require( './blefa.js' )
 const crypto = require( 'crypto' )
 
 const FULLDAYMS = 1000 * 60 * 60 * 24
@@ -52,8 +52,8 @@ module.exports.addLoss = function( fromChan, amt, curr, rate, ref ) {
 }
 
 module.exports.getLosses = function( fromDatetime, toDatetime, channel, curr ) {
-  return
-    BLDB.getCollection('NOTES')
+  return BLDB.getCollection('LOSSES')
+        .chain()
         .find( { 
           '$and' : [
             { 'When' : { '$gte' : fromDatetime } },
@@ -63,9 +63,12 @@ module.exports.getLosses = function( fromDatetime, toDatetime, channel, curr ) {
           ]
         } )
         .simplesort('When')
+        .data()
 }
 
-module.exports.addNote = function( saleid, message, source, isclientvisible ) {
+module.exports.addNote = function(
+  saleid, message, source, isclientvisible=false ) {
+
   let sale = module.exports.getSale( saleid )
   if (!sale) throw 'No sale found with that saleid'
 
@@ -88,15 +91,18 @@ module.exports.getNotes = function( saleid ) {
              .data()
 }
 
-module.exports.addPurchase = function( toChan, amt, curr, rate, source, ref ) {
+module.exports.addPurchase =
+  function( toChan, amt, curr, rate, fees, psource, pref ) {
+
   let purch = {
     Added : Date.now(),
     Channel : toChan,
     Amount : amt,
     Curr : curr,
     Rate : rate,
-    Source : source,
-    Ref : ref
+    Fees : fees,
+    Source : psource,
+    Ref : pref
   }
   BLDB.getCollection('PURCHASES').insert( purch )
 
@@ -110,7 +116,7 @@ module.exports.getPurchases = function(
              .chain()
              .find( { 
                '$and' : [
-                 { 'ToChannel' : { '$eq' : channel } },
+                 { 'Channel' : { '$eq' : channel } },
                  { 'Curr' : { '$eq' : curr } },
                  { 'Added' : { '$gte' : fromDatetime } },
                  { 'Added' : { '$lt' : toDatetime } }
@@ -124,16 +130,13 @@ module.exports.addSale = function(
   chan, clientip, rate, ctxMethod, ourRxAddr,
   ctxamt, ctxcurr, fees, crxamt, crxcurr, crxCoords ) {
 
-  // chances of a clash are super tiny but check anyway...
   let sale = null, giveup = 0, id
   while (giveup++ < 3) {
-    let rndbuff = crypto.randomBytes( 5 )
+    let rndbuff = crypto.randomBytes( 8 )
     id = rndbuff.toString( 'hex' )
     sale = module.exports.getSale( id )
     if (!sale || sale.length == 0)
       break
-    console.log("CLASH:" + JSON.stringify(sale))
-    return
   }
 
   let entry = {
@@ -154,6 +157,7 @@ module.exports.addSale = function(
     CrxCurr : crxcurr,
     CrxCoords : crxCoords,
     CrxSent : 0,
+    CrxFeePaid : 0,
     XMRViewKey : "TBD",
     CrxRef : "TBD"
   }
@@ -223,9 +227,9 @@ module.exports.getSales = function( chan, from, to ) {
   return result
 }
 
-module.exports.updateSaleOurRxAddress = function( ourAddr ) {
+module.exports.updateSaleOurRxAddress = function( id, ourAddr ) {
   let sale = module.exports.getSale( id )
-  if (!sale) throw 'invalid sale id'
+  if (!sale) throw 'invalid sale id: ' + id
   sale.OurRxAddr = ourAddr
   BLDB.getCollection('SALES').update( sale )
 }
@@ -247,12 +251,13 @@ module.exports.ctxReceived = function( saleid, ctxref ) {
   return { 'Received' : sale.CtxReceived }
 }
 
-module.exports.crxSent = function( saleid, crxref, xmrviewkey="" ) {
+module.exports.crxSent = function( saleid, crxref, feepaidcad, xmrviewkey="" ) {
   let sale = module.exports.getSale( saleid )
   if (!sale) throw 'invalid saleid'
   if (sale.CrxSent != 0) throw 'Settlement already sent'
   sale.CrxSent = Date.now()
   sale.CrxRef = crxref
+  sale.CrxFeePaid = feepaidcad
   sale.XMRViewKey = xmrviewkey
   BLDB.getCollection('SALES').update( sale )
   return { 'Sent' : sale.CrxSent }
@@ -420,22 +425,13 @@ module.exports.inventory = function( chan ) {
   return sums
 }
 
-//             OUTPUTS ≡ SETTLEMENT & LOSSES  (non-CAD-currency going out)
-//              INPUTS ≡ PAYMENTS & PURCHASES (non-CAD-currency coming in)
-//
-//   Sale.CapitalGains =   Output.CADEquivAmt
-//                       - (Output.Amount / Corresponding-Input.Rate)
-//
-//        GrossRevenue =   Σ Sale.OurFees + Σ Sale.CapitalGains
-//
-// NOTE: calculations done in CA$ (CAD) converted per rate
-
 module.exports.calcPnL = function( chan, curr, fromst=0, tost=Date.now() )
 {
   let ins = [],
       outs = [],
       sumGains = 0.0,
-      sumOurFees = 0.0
+      sumOurFees = 0.0,
+      sumFeesPaid = 0.0
 
   let purchases = BLDB.getCollection('PURCHASES')
                  .chain()
@@ -461,8 +457,8 @@ module.exports.calcPnL = function( chan, curr, fromst=0, tost=Date.now() )
       CADEquivAmt : cadequiv
     }
 
-    console.log( 'purchase/in:\n' + JSON.stringify(it) )
     ins.push( it )
+    sumFeesPaid += Number.parseFloat( pu.Fees ) // in CAD
   } )
 
   let sales = BLDB.getCollection('SALES')
@@ -483,39 +479,39 @@ module.exports.calcPnL = function( chan, curr, fromst=0, tost=Date.now() )
                   .data()
 
   sales.forEach( sa => {
-    console.log( '\nsa: ' + JSON.stringify(sa) + '\n' )
-
     // client is transmitting fiat and receiving $curr
     if (sa.CtxCurr === 'CAD') {
+
+      // note: rate is CADBTC not BTCCAD
       let cadout =
-        Math.floor(   Number.parseFloat(sa.CrxAmount)
-                    * Number.parseFloat(sa.Rate) * 100 ) / 100
+        Math.floor(   100.0 * 
+                      Number.parseFloat(sa.CrxAmount)
+                    / Number.parseFloat(sa.Rate) ) / 100.0
         - Number.parseFloat(sa.Fees.total)
 
       let it = {
         Type : "SALE",
         Timestamp : sa.Submitted,
         Amount : sa.CrxAmount,
-        Rate : sa.Rate,
+        Rate : 1.0 / Number.parseFloat(sa.Rate),
         CADEquivAmt : cadout
       }
-      console.log( 'considering sale out:\n' + JSON.stringify(it) )
       outs.push( it )
     }
-    else {
-      // we are buying $curr with fiat
+    else { // we are buying $curr with fiat
       let cadin = Math.floor( Number.parseFloat(sa.CtxAmount) *
                               Number.parseFloat(sa.Rate) * 100 ) / 100
       let it = {
+        Type : "SALE",
         Timestamp : sa.Submitted,
         Amount : sa.CtxAmount,
         Rate : sa.Rate,
         CADEquivAmt : cadin
       }
       ins.push( it )
-      console.log( 'considering purchase by sale in:\n' + JSON.stringify(it) )
     }
 
+    sumFeesPaid += Number.parseFloat( sa.CrxFeePaid )
     let ourfee = sa.Fees.fees[module.exports.BLIQUIDFEENAME].replace('$','')
     sumOurFees += Number.parseFloat( ourfee )
   } )
@@ -546,16 +542,13 @@ module.exports.calcPnL = function( chan, curr, fromst=0, tost=Date.now() )
     } )
   } )
 
-  outs.sort( (a,b) => { b.Timestamp - a.Timestamp } ) // sort ASCENDING
+  outs.sort( (a,b) => { b.Timestamp - a.Timestamp } ) // sorts ASCENDING
 
   // calculate gains using accounting fifo rule ...
 
   let inIndex = 0, inPtr = 0.00, gains = 0.0
 
   outs.forEach( (ot) => {
-
-    console.log( 'out: ' + JSON.stringify( ot ) )
-
     let outtogo = ot.Amount
 
     while (inIndex < ins.length && outtogo > 0) {
@@ -565,6 +558,10 @@ module.exports.calcPnL = function( chan, curr, fromst=0, tost=Date.now() )
           gains -= ot.CADEquivAmt
         } else if (ot.Type === 'SALE') {
           gains += outtogo * (ot.Rate - ins[inIndex].Rate)
+          console.log( 'outtogo: ' + outtogo + '\n' +
+            'ot.Rate: ' + ot.Rate + '\n' +
+            'ins[' + inIndex + '].Rate: ' + ins[inIndex].Rate + '\n' +
+            'gains: ' + gains )
         }
 
         inPtr += outtogo
@@ -589,7 +586,8 @@ module.exports.calcPnL = function( chan, curr, fromst=0, tost=Date.now() )
   } )
 
   let result = { gains: Math.floor(gains * 100)/100,
-                 fees: sumOurFees }
+                 ourFees: sumOurFees,
+                 feesPaid: sumFeesPaid }
 
   console.log( 'returning: ' + JSON.stringify(result) )
   return result

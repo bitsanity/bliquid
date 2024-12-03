@@ -1,7 +1,0 @@
-{
-  "dependencies": {
-    "eciesjs": "^0.4.4",
-    "elliptic": "^6.5.4",
-    "ws": "^8.13.0"
-  }
-}
