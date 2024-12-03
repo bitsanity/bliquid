@@ -1,0 +1,103 @@
+#!node
+
+const fs = require( 'fs' )
+
+var accessLog =
+  fs.createWriteStream(
+    '/var/log/lighttpd/cgiaccess.txt',
+    {flags: 'a',flush:true}
+  )
+
+function timestamp() {
+  let now = new Date()
+  let mon = now.getUTCMonth() + 1
+  if (mon < 10) mon = '0' + mon
+  let day = now.getUTCDate()
+  if (day < 10) day = '0' + day
+  let hr = now.getUTCHours()
+  if (hr < 10) hr = '0' + hr
+  let min = now.getUTCMinutes()
+  if (min < 10) min = '0' + min
+  return '' + now.getUTCFullYear() + mon + day + ':' + hr + min
+}
+
+function parseParameters( arr ) {
+  let req = {
+    emaddr: null,
+    buysell: null,
+    amt: null
+  }
+
+  for (var ii = 0; ii < arr.length; ii++) {
+    let prts = arr[ii].split('=')
+    let name = prts[0]
+    let valu = prts[1]
+
+    if (name === 'emaddr')
+      req.emaddr = valu
+    else if (name === 'buysell')
+      req.buysell = valu
+    else if (name === 'amt')
+      req.amt = parseFloat(valu)
+  }
+
+  if (!req.emaddr || req.emaddr.length == 0 || req.emaddr === 'your@email')
+    throw 'Invalid email parameter'
+
+  if ( !req.buysell || (req.buysell !== 'Buy' && req.buysell !== 'Sell') )
+    throw 'Invalid Buy/Sell parameter'
+
+  if (req.amt <= 0.0 || req.amt > 1.0)
+    throw 'Invalid Bitcoin amount parameter'
+
+  accessLog.write(
+    timestamp() + ' ' + process.env.REMOTE_ADDR + ' ' +
+    'btccad: ' + req.emaddr + ', ' + req.buysell + ', ' + req.amt + '\n' )
+
+  replyOk()
+}
+
+function replyOk() {
+  console.log( "Content-Type: text/plain\r\n\r\n" )
+  console.log( "Got it. Thanks." )
+}
+
+function replyBadParams() {
+  console.log( "Content-Type: text/plain\r\n\r\n" )
+  console.log( "Bad parameter/s" )
+}
+
+function handleGet() {
+  parseParameters( process.env.QUERY_STRING.split('&') )
+}
+
+function handlePost() {
+  let contentLength = process.env.CONTENT_LENGTH
+  if (contentLength > 100)
+    throw 'Unparseable content length'
+
+  process.stdin.on('data', data => {
+    if (!data || data.length == 0) throw 'POST data missing'
+    parseParameters( data.split('&') )
+  });
+}
+
+// =====
+//  MAIN
+// =====
+
+try {
+  if (process.env.REQUEST_METHOD === 'GET') {
+    handleGet()
+  }
+  else if (process.env.REQUEST_METHOD === 'POST') {
+    handlePost()
+  }
+  else
+    throw "unrecognized REQUEST_METHOD: " + process.env.REQUEST_METHOD
+}
+catch( ex ) {
+  var errLog = fs.createWriteStream( 'errors.txt', {flags:'a',flush:true} )
+  errLog.write( timestamp() + ' ' + ex.toString() )
+  replyBadParams()
+}

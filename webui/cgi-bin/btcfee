@@ -1,0 +1,5 @@
+#!/home/skull/nodejs/bin/node
+
+const cgitows = require( './cgitows.js' )
+
+cgitows.doit( "btc.fee" )
