@@ -1,7 +1,9 @@
-const bitcoind = require('./bitcoind.js')
+const bitcoin = require('./bitcoin.js')
 
+let addr = process.argv[2]
+let reqid = 'hello'
 
-bitcoind.balance( process.argv[2], 'hello', resobj => {
+bitcoin.balance( addr, reqid, resobj => {
   console.log( resobj )
 } )
 
