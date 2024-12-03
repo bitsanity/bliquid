@@ -32,18 +32,24 @@ exports.fetchRates = function() {
 }
 
 exports.toCAD = function( amt, curr ) {
-  let result = amt
+  let result = 0.00
 
-  if (curr === 'USD')
-    result = Number.parseFloat(amt) / Number.parseFloat(cached.USDCAD)
-  else if (curr == 'BTC')
-    result = Number.parseFloat(amt) * Number.parseFloat(cached.BTCCAD)
-  else if (curr == 'ETH')
-    result = Number.parseFloat(amt) * Number.parseFloat(cached.ETHCAD)
-  else if (curr == 'XMR')
-    result = Number.parseFloat(amt) * Number.parseFloat(cached.XMRCAD)
-  else if (curr == 'USDC')
-    result = Number.parseFloat(amt) * Number.parseFloat(cached.USDCCAD)
+  if (curr === 'CAD')
+    result = amt
+  else if (curr === 'USD') {
+    let usdcad = Number.parseFloat( cached['bitcoin']['cad'] )
+                   / Number.parseFloat( cached['bitcoin']['usd'] )
+    result = Number.parseFloat(amt) * usdcad
+  }
+  else if (curr === 'BTC')
+    result =   Number.parseFloat(amt)
+             * Number.parseFloat(cached['bitcoin']['cad'])
+  else if (curr === 'ETH')
+    result =   Number.parseFloat(amt)
+             * Number.parseFloat(cached['ethereum']['cad'])
+  else if (curr === 'XMR')
+    result =    Number.parseFloat(amt)
+              * Number.parseFloat(cached['monero']['cad'])
 
   result = Math.floor(result * 100.0) / 100.0
   return result
@@ -55,31 +61,29 @@ exports.toCurrency = function(number) {
 }
 
 exports.cadToCurr = function( amt, curr ) {
-  let result = amt
+  let result = 0.00
 
   if (curr === 'CAD') {
-    result = Math.floor( result * 100.0 ) / 100.0
+    result = amt
   } else if (curr === 'USD') {
-    result = Number.parseFloat(amt) / Number.parseFloat(cached.USDCAD)
-    result = Math.floor( result * 100.0 ) / 100.0
+    let usdcad =   Number.parseFloat( cached['bitcoin']['cad'] )
+                 / Number.parseFloat( cached['bitcoin']['usd'] )
+    result = Number.parseFloat(amt) / usdcad
   }
   else if (curr == 'BTC') {
-    result = Number.parseFloat(amt) / Number.parseFloat(cached.BTCCAD)
-    result = Math.floor( result * 100000000.0 ) / 100000000.0
+    result =   Number.parseFloat(amt)
+             / Number.parseFloat( cached['bitcoin']['cad'] )
   }
   else if (curr == 'ETH') {
-    result = Number.parseFloat(amt) / Number.parseFloat(cached.ETHCAD)
-    result = Math.floor( result * 1000000.0 ) / 1000000.0
+    result =   Number.parseFloat(amt)
+             / Number.parseFloat( cached['ethereum']['cad'] )
   }
   else if (curr == 'XMR') {
-    result = Number.parseFloat(amt) / Number.parseFloat(cached.XMRCAD)
-    result = Math.floor( result * 1000000.0 ) / 1000000.0
-  }
-  else if (curr == 'USDC') {
-    result = Number.parseFloat(amt) / Number.parseFloat(cached.USDCCAD)
-    result = Math.floor( result * 100.0 ) / 100.0
+    result =   Number.parseFloat(amt)
+             / Number.parseFloat( cached['monero']['cad'] )
   }
 
+  result = Math.floor(result * 100000000.0) / 100000000.0
   return result
 }
 

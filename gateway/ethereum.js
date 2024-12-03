@@ -45,14 +45,11 @@ function toCache( tstamp, blknum, pkhex ) {
 
 exports.syncEpks = function() {
 
-  console.log( 'syncing, hwm: ' + blockHWM )
-
   EPKCon.getPastEvents( 'Registered',
     { fromBlock: blockHWM, toBlock: 'latest' } )
   .then( events => {
     events.forEach( async evt => {
       let block = await web3.eth.getBlock( evt.blockNumber )
-      console.log( 'caching: ' + evt.returnValues.pubkey )
       toCache( block.timestamp, evt.blockNumber, evt.returnValues.pubkey )
       blockHWM = evt.blockNumber + BigInt(1)
     } )

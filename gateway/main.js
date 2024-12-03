@@ -1,6 +1,7 @@
 const fs = require( 'fs' )
 const wss = require( 'ws' )
 const crypto = require( 'crypto' )
+const acl = require( './acl.js' )
 const bitcoin = require( './bitcoind.js' )
 const ethereum = require( './ethereum.js' )
 const ecjson = require( './ecjsonrpc.js' )
@@ -26,16 +27,15 @@ function log( errstr ) {
 }
 
 function redError( code, exstr ) {
-  log( '' + code + ' ' + exstr )
+  log( 'redError: ' + code + ' ' + exstr )
   return ecjson.makeErrorObj( code, exstr, 0 )
 }
 
 function blackError( code, exstr, cid, txprivkey, rxpubkey ) {
-  log( '' + code + ' ' + exstr )
   let errobj = ecjson.makeErrorObj( code, exstr, cid )
   let result
   try {
-    result = ecjson.redToBlack( sessionkey.prv, rxpubkey, errobj )
+    result = ecjson.redToBlack( txprivkey, rxpubkey, errobj )
   }
   catch (ex) {
     result = null
@@ -81,7 +81,7 @@ function calcFees( ctxAmount, ctxCurr, crxCurr, crxMethod ) {
   }
 
   if (crxMethod === 'BTCMAINNET') {
-    fee = bitcoin.getFee() * rates.bitcoin.cad
+    fee = bitcoin.getFee() * rates.getRates().bitcoin.cad
     resObj.fees["Bitcoin mining"] = rates.toCurrency( fee )
     resObj.total += fee
   }
@@ -93,14 +93,12 @@ function calcFees( ctxAmount, ctxCurr, crxCurr, crxMethod ) {
   }
 
   let valueincad = rates.toCAD( ctxAmount, ctxCurr )
-  if (valueincad >= 1000.0) throw 'Deals must be less than $1000.00 CAD'
-
-  let ourFee = rates.toCurrency( valueincad * 0.015 )
+  let ourFee = Number.parseFloat(valueincad) * 0.015
   if (ourFee < 3.0) ourFee = 3.0
   resObj.total += ourFee
 
   resObj.fees[bliquiddb.BLIQUIDFEENAME] = '' + rates.toCurrency(ourFee)
-  resObj.fees["PST+GST"] = toCurrency( "0.00" )
+  resObj.fees["PST+GST"] = rates.toCurrency( "0.00" )
   resObj.total = Math.floor(resObj.total * 100) / 100
 
   return resObj
@@ -116,49 +114,48 @@ function getNextRxAddress( label, curr ) {
         resolve( res )
       } )
       .catch( reject )
-    } )
-
-    else if (curr === 'CAD') resolve( 'admin@b-liquid.money' )
-    else reject( 'invalid curr: ' + curr )
-  }
+    }
+    else if (curr === 'CAD')
+      resolve( 'admin@b-liquid.money' )
+    else
+      reject( 'invalid curr: ' + curr )
+  } )
 }
 
-function newSale( clientip, order ) {
+async function newSale( clientip, order ) {
 
-  // TODO confirm caller isn't on a FINTRAC banned list
+  let available = bliquiddb.inventory( order.channel )
+  if (    !available[order.crxCurr]
+       || available[order.crxCurr] <= order.crxAmount ) {
+    throw 'order of ' + order.crxAmount + ' ' +
+          order.crxCurr + ' exceeds available float'
+  }
+
+  // TODO confirm client ip and crx address are not on some banned list
 
   if (!bliquiddb.isFinRegCheckOk( clientip, order.crxCoords) ) {
     throw '24hr violation by IP or receive address'
   }
 
-  let cadAmt = rates.toCAD( order.ctxAmount, order.ctxCurr )
-  if (cadAmt >= 1000.0) throw 'orders must be less than CA$1000.00'
-
   let fees =
     calcFees( order.ctxAmount, order.ctxCurr, order.crxCurr, order.crxMethod )
 
+  let cadAmt = rates.toCAD( order.ctxAmount, order.ctxCurr )
+  if (cadAmt >= 1000.0) throw 'orders must be less than CA$1000.00'
+
   let toClientCad = cadAmt - fees.total
-
   order.crxAmount = rates.cadToCurr( toClientCad, order.crxCurr )
-
-  let effectiveRate = '' +
-    Math.floor( 10000 * order.crxAmount / cadAmt ) / 10000 // 4 decimal places
-
-  // confirm we have enough float on hand to settle
-  let available = bliquiddb.inventory( order.channel )
-
-  if (    !available[order.crxCurr]
-       || available[order.crxCurr] <= order.crxAmount ) {
-    throw 'order amount exceeds available float'
-  }
 
   let ourRxAddr = await getNextRxAddress( '', order.ctxCurr )
   if (!ourRxAddr) throw 'failed to create a receive address'
 
+  let rateInEffect =
+    Number.parseFloat(order.crxAmount) / Number.parseFloat(order.ctxAmount )
+
   let saleId = bliquiddb.addSale(
     order.channel,
     clientip,
-    effectiveRate,
+    rateInEffect,
     order.ctxMethod,
     ourRxAddr,
     order.ctxAmount,
@@ -168,7 +165,7 @@ function newSale( clientip, order ) {
     order.crxCurr,
     order.crxCoords )
 
-  if (ctxCurr === 'BTC') bitcoin.labelAddress( ourRxAddr, saleId )
+  if (order.ctxCurr === 'BTC') bitcoin.labelAddress( ourRxAddr, saleId )
 
   return { "ID" : saleId }
 }
@@ -189,7 +186,7 @@ wsServer.on( 'connection', (ws, req) => {
   let sessionkey = ecjson.makeKey()
   let redhello = ecjson.makeRedHello( sessionkey.pub )
   ws.send( JSON.stringify(redhello) )
-  log( 'said hello to ' + clientip )
+  log( 'connection from ' + clientip )
 
   ws.on( 'message', async function(blackstr) {
 
@@ -199,7 +196,9 @@ wsServer.on( 'connection', (ws, req) => {
       if (blackobj == null || !ecjson.isBlackMsg(blackobj))
         throw 'Bad Request: not a valid black message'
 
-      // TODO: ACL check ensure blackobj.spkhex is a recognized client
+      // ensure blackobj.spkhex is a recognized client
+      console.log( 'spkhex: ' + blackobj.spkhex )
+      if (!acl.isEnabled(blackobj.spkhex)) throw 'not allowed'
 
       redobj = ecjson.blackToRed( sessionkey.prv, blackobj )
       if (!ecjson.isJSONRPC(redobj))
@@ -207,6 +206,7 @@ wsServer.on( 'connection', (ws, req) => {
     }
     catch( ex )
     {
+      log( ex.toString() )
       ws.send( JSON.stringify(redError(400, ex.toString(), 0)) )
       ws.close()
       return
@@ -216,16 +216,17 @@ wsServer.on( 'connection', (ws, req) => {
 
     let resobj
     try {
+      // --------------------------
+      // Public webserver functions
+      // --------------------------
+
       if (redobj.method === 'rates') {
         resobj = rates.getRates()
-      }
-      else if (redobj.method === 'btc.balance') {
+      } else if (redobj.method === 'btc.balance') {
         resobj = await bitcoin.balance( redobj.params[0] )
-      }
-      else if (redobj.method === 'btc.fee') {
+      } else if (redobj.method === 'btc.fee') {
         resobj = bitcoin.getFee()
-      }
-      else if (redobj.meth === 'fees') {
+      } else if (redobj.method === 'fees') {
         let reqobj = redobj.params[0]
         resobj = calcFees(
           reqobj.ctxAmount,
@@ -233,29 +234,32 @@ wsServer.on( 'connection', (ws, req) => {
           reqobj.crxCurr,
           reqobj.crxMethod
         )
-      }
-      else if (redobj.method === 'eth.epkscan') {
+      } else if (redobj.method === 'eth.epkscan') {
         resobj = await ethereum.ethEpkScan( redobj.params[0] )
-      }
-      else if (redobj.method === 'eth.balances') {
+      } else if (redobj.method === 'eth.balances') {
         resobj = await ethereum.ethBalances( redobj.params )
+      } else if (redobj.method === 'book') {
+        resobj = await newSale( clientip, redobj.params[0] )
+      } else if (redobj.method === 'orderstatus') {
+        resobj = bliquiddb.getSale( redobj.params[0].orderId )
+      } else {
+        if (!acl.isAdmin(blackobj.spkhex)) throw 'must be admin'
       }
-      else if (redobj.meth === 'book') {
-        resobj = newSale( clientip, redobj.params[0] )
-      }
-      else if (redobj.meth === 'orderstatus') {
-        resobj = getSale( redobj.params[0] )
-      }
-      else if (redobj.meth === 'mxctxs') {
+
+      // --------------------------------------------
+      // Functions for which caller must be an admin
+      // --------------------------------------------
+
+      if (redobj.method === 'mxctxs') {
         resobj = bliquiddb.waitingPayments( redobj.params[0] )
       }
-      else if (redobj.meth === 'mxcrxs') {
+      else if (redobj.method === 'mxcrxs') {
         resobj = bliquiddb.pendingSettlements( redobj.params[0] )
       }
-      else if (redobj.meth === 'mxinventory') {
+      else if (redobj.method === 'mxinventory') {
         resobj = bliquiddb.inventory( redobj.params[0] )
       }
-      else if (redobj.meth === 'mxaddpurchase') {
+      else if (redobj.method === 'mxaddpurchase') {
         resobj = bliquiddb.addPurchase(
           redobj.params[0].toChan,
           redobj.params[0].amount,
@@ -265,13 +269,14 @@ wsServer.on( 'connection', (ws, req) => {
           redobj.params[0].source,
           redobj.params[0].ref )
       }
-      else if (redobj.meth === 'mxgetpurchases') {
-        resobj = bliquiddb.addPurchase(
+      else if (redobj.method === 'mxgetpurchases') {
+        resobj = bliquiddb.getPurchases(
           redobj.params[0].fromtime,
           redobj.params[0].totime,
           redobj.params[0].channel,
           redobj.params[0].curr )
-      else if (redobj.meth === 'mxaddloss') {
+      }
+      else if (redobj.method === 'mxaddloss') {
         resobj = bliquiddb.addLoss(
           redobj.params[0].channel,
           redobj.params[0].amount,
@@ -279,52 +284,53 @@ wsServer.on( 'connection', (ws, req) => {
           redobj.params[0].rate,
           redobj.params[0].ref )
       }
-      else if (redobj.meth === 'mxgetlosses') {
+      else if (redobj.method === 'mxgetlosses') {
         resobj = bliquiddb.getLosses(
           redobj.params[0].fromDatetime,
           redobj.params[0].toDatetime,
           redobj.params[0].channel,
           redobj.params[0].currency )
       }
-      else if (redobj.meth === 'mxaddnote') {
+      else if (redobj.method === 'mxaddnote') {
         resobj = bliquiddb.addNote(
           redobj.params[0].saleId,
           redobj.params[0].message,
           redobj.params[0].source,
           redobj.params[0].isclientvisible )
       }
-      else if (redobj.meth === 'mxgetnotes') {
+      else if (redobj.method === 'mxgetnotes') {
         resobj = bliquiddb.getNotes( redobj.params[0] )
       }
-      else if (redobj.meth === 'mxaddsar') {
+      else if (redobj.method === 'mxaddsar') {
         resobj = bliquiddb.addSAR(
           redobj.params[0].saleId,
           redobj.params[0].reason,
           redobj.params[0].ourref,
           redobj.params[0].fintracref )
       }
-      else if (redobj.meth === 'mxgetsars') {
+      else if (redobj.method === 'mxgetsars') {
         resobj = bliquiddb.getSARs( redobj.params[0] )
       }
-      else if (redobj.meth === 'mxctxreceived') {
+      else if (redobj.method === 'mxctxreceived') {
         resobj = bliquiddb.ctxReceived(
           redobj.params[0].saleId,
           redobj.params[0].ctxRef )
       }
-      else if (redobj.meth === 'mxcrxsent') {
+      else if (redobj.method === 'mxcrxsent') {
         resobj = bliquiddb.crxSent(
           redobj.params[0].saleId,
           redobj.params[0].crxRef,
+          redobj.params[0].feesCAD,
           redobj.params[0].xmrViewKey )
       }
-      else if (redobj.meth === 'mxgetsales') {
+      else if (redobj.method === 'mxgetsales') {
         resobj = bliquiddb.getSales(
           redobj.params[0].channel,
           redobj.params[0].fromDatetime,
           redobj.params[0].toDatetime
         )
       }
-      else if (redobj.meth === 'mxcalcpnl') {
+      else if (redobj.method === 'mxcalcpnl') {
         resobj = bliquiddb.calcPnL(
           redobj.params[0].channel,
           redobj.params[0].currency,
@@ -336,7 +342,6 @@ wsServer.on( 'connection', (ws, req) => {
       }
     }
     catch( ex ) {
-      log( redobj.method + ', ' + ex.toString() )
       ws.send( JSON.stringify(blackError(
         400,
         'gateway: ' + ex.toString(),
@@ -347,9 +352,9 @@ wsServer.on( 'connection', (ws, req) => {
       return
     }
 
-    if (resobj != null) {
-      log( 'red response: ' + JSON.stringify(resobj) )
+    log( 'red response: ' + JSON.stringify(resobj) )
 
+    if (resobj != null) {
       ws.send( JSON.stringify(blackResponse(
         sessionkey.prv, blackobj.spkhex, redobj.id, resobj)) )
     }
@@ -371,14 +376,14 @@ wsServer.on( 'connection', (ws, req) => {
   } )
 } )
 
-//ethereum.syncEpks()
+ethereum.syncEpks()
 //setInterval( ethereum.syncEpks, 3600000 )
 
-//rates.fetchRates()
+rates.fetchRates()
 //setInterval( rates.fetchRates, 3600000 )
 
 bitcoin.fetchFee()
-setInterval( bitcoin.fetchFee, 1800000 )
+//setInterval( bitcoin.fetchFee, 1800000 )
 
 readline.question( 'db password: ', (pass) => {
   try {
