@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>B-LIQUID Order Status</title>
+  <link id="PageSkin" rel="stylesheet" type="text/css" href="bliquid.css"/>
+  <meta charset="UTF-8"/>
+  <meta name="description" content="B-Liquid Order Status" />
+  <meta name="author" content="B-Liquid Cryptos Ltd. (BC)" />
+
+  <script src="libs/jquery.min.js"></script>
+  <script src="libs/qrcode.min.js"></script>
+  <script src="libs/BLDate.js"></script>
+  <script src="libs/uiutils.js"></script>
+  <script src="status.js"></script>
+</head>
+
+<body>
+<div class=header>
+<img height=80 width=80 src=img/logo.svg></img>
+</div>
+
+<center>
+<noscript>
+  <span class=warning>Page requires javascript. Please enable.</span>
+</noscript>
+
+<p>&nbsp;</p>
+
+<span class=label>Order:</span>&nbsp;
+<span id=OrderID class=data>[order reference]</span>
+<p>
+<table>
+<tr>
+  <td colspan=2><hr></td>
+</tr>
+
+<tr>
+  <td align=right class=label>Client will send:</td>
+  <td id=CtxAmount class=data></td>
+</tr>
+<tr>
+  <td align=right class=label>Client will send using:</td>
+  <td id=CtxMethod class=data></td>
+</tr>
+<tr>
+  <td align=right valign=top class=label>Client will send payment to:</td>
+  <td id=CtxPmtAddr>
+    <div id=CtxPmtAddrQR></div>
+    <p>
+    <div id=CtxPmtAddrText class=fineprint></div>
+  </td>
+</tr>
+
+<tr>
+  <td colspan=2><hr></td>
+</tr>
+
+<tr>
+  <td align=right class=label>B-Liquid will return settlement of:</td>
+  <td id=CrxAmount class=data></td>
+</tr>
+<tr>
+  <td align=right class=label>To Client's address:</td>
+  <td id=CrxAddr class=data></td>
+</tr>
+
+<tr>
+  <td colspan=2><hr></td>
+</tr>
+
+<tr>
+  <td align=right class=label>Order Submitted:</td>
+  <td id=OrderSubmittedAt class=data></td>
+</tr>
+<tr>
+  <td align=right class=label>Payment due to B-Liquid:</td>
+  <td id=CtxDueBy class=data></td>
+</tr>
+<tr>
+  <td align=right class=label>Payment received at:</td>
+  <td id=CtxReceivedAt class=data></td>
+</tr>
+<tr>
+  <td align=right class=label>Settlement due:</td>
+  <td id=CrxDueBy class=data></td>
+</tr>
+<tr>
+  <td align=right class=label>Settlement sent at:</td>
+  <td id=CrxSentAt class=data></td>
+</tr>
+<tr>
+  <td align=right class=label>Settlement Reference:</td>
+  <td id=CrxReference class=data></td>
+</tr>
+</table>
+
+</center>
+
+<p>
+<div class=footer>
+<span class=label>
+  <font size=+1 color=white>- THANK YOU For Your Order -</font>
+</span>
+</div>
+
+<script type="text/javascript">
+  let args = window.location.href.split('?')
+  let orderid = args[1].split('=')
+  fetchStatus( orderid[1] )
+</script>
+</body>
+</html>

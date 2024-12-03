@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>B-LIQUID Position</title>
+
+  <link id="PageSkin" rel="stylesheet" type="text/css" href="bliquid.css"/>
+
+  <meta charset="UTF-8"/>
+  <meta name="author" content="B-Liquid Cryptos Ltd. (BC)" />
+
+  <script src="tabs.js"></script>
+  <script src="libs/jquery.min.js"></script>
+  <script src="libs/BLDate.js"></script>
+  <script src="bladmin.js"></script>
+</head>
+
+<body>
+<div class=header>
+<img height=80 width=80 src=img/logo.svg></img>
+</div>
+
+<center>
+<noscript>
+  <span class=warning>Page requires javascript. Please enable.</span>
+</noscript>
+
+<p>&nbsp;</p>
+
+<div class="tab">
+<button class="tablinks" id="CTXTabButton"
+  onclick="openTab(event, 'CTXDiv');initCTXTab();">
+  Client Sends (CTXs)
+</button>
+<button class="tablinks" id="CRXTabButton"
+  onclick="openTab(event, 'CRXDiv');initCRXTab();">
+  Client Receives (CRXs)
+</button>
+<button class="tablinks" id="PNLTabButton"
+  onclick="openTab(event, 'PNLDiv');initPNLTab();">PNL/Inventory</button>
+<button class="tablinks" id="PurchTabButton"
+  onclick="openTab(event, 'PurchDiv');initPurchTab();">Purchases</button>
+<button class="tablinks" id="LossesTabButton"
+  onclick="openTab(event, 'LossesDiv');initLossesTab();">Losses</button>
+<button class="tablinks" id="NotesTabButton"
+  onclick="openTab(event, 'NotesDiv');initNotesTab();">Notes</button>
+<button class="tablinks" id="SARsTabButton"
+  onclick="openTab(event, 'SARsDiv');initSARsTab();">SARs</button>
+</div>
+
+<div id=CTXDiv class=tabcontent>
+  Order Submitted CtxAmount CtxCurr [Mark Received]
+</div>
+
+<div id=CRXDiv class=tabcontent>
+  Order CtxReceived CrxAmount CrxCurr [Mark Sent]
+</div>
+
+<div id=PNLDiv class=tabcontent>
+<table>
+<tr>
+  <th align=right>Channel:</th>
+  <td class=data>b-liquid.money</td>
+</tr>
+<tr>
+  <th align=right>Query From:</th>
+  <td id=fromwidgetcell></td>
+  <td align=left>(local)</td>
+</tr>
+<tr>
+  <th align=right>Query To:</th>
+  <td id=towidgetcell></td>
+  <td align=left>(local)</td>
+</tr>
+<tr>
+  <th></th>
+  <td>
+    <button class=cmdbtn onclick="doQuery()">Submit</button>
+  </td>
+</tr>
+</table>
+
+<p>&nbsp;</p>
+
+<table>
+<tr class=tableheaderrow>
+  <th>Currency</th>
+  <th>Inventory</th>
+  <th>Sales Gains</th>
+  <th>Fees Collected</th>
+  <th>Fees Paid</th>
+</tr>
+<tr>
+  <td class=label>BTC</td>
+  <td id=btcInventory class=data>0.00000000</td>
+  <td id=btcGains class=data>0000.00</td>
+  <td id=btcFeesCollected class=data>00.00</td>
+  <td id=btcFeesPaid class=reddata>00.00</td>
+</tr>
+<tr>
+  <td class=label>CAD</td>
+  <td id=cadInventory class=data>0.00</td>
+  <td>-</td>
+  <td>-</td>
+  <td>-</td>
+</tr>
+</table>
+
+</div>
+
+<div id=PurchDiv class=tabcontent>
+<table>
+<tr>
+  <th align=right>Channel:</th>
+  <td class=data>b-liquid.money</td>
+</tr>
+<tr>
+  <th align=right>Currency:</th>
+  <td>
+    <select id=PurchCurrSelect>
+      <option value="BTC">BTC</option>
+    </select>
+  </td>
+</tr>
+<tr>
+  <th align=right>Purchases From:</th>
+  <td id=purchfromwidgetcell></td>
+  <td align=left>(local)</td>
+</tr>
+<tr>
+  <th align=right>Purchases To:</th>
+  <td id=purchtowidgetcell></td>
+  <td align=left>(local)</td>
+</tr>
+<tr>
+  <th></th>
+  <td>
+    <button class=cmdbtn onclick="doPurchQuery()">Submit</button>
+  </td>
+</tr>
+</table>
+
+<p>&nbsp;</p>
+
+<div id=PurchQueryResults>
+<table>
+<tr class=tableheaderrow>
+  <th>Currency</th>
+  <th>Added</th>
+  <th>Amount</th>
+  <th>Rate</th>
+  <th>Fees CAD </th>
+  <th>Source</th>
+  <th>Reference</th>
+</tr>
+<tr>
+  <td colspan=7>Submit query...</td>
+</tr>
+</table>
+</div>
+
+<p>&nbsp;</p>
+
+<fieldset style="display: inline">
+<table>
+<tr bgcolor=lightgray>
+  <th colspan=2>New Purchase Details:</th>
+</tr>
+<tr>
+  <th align=right>Amount:</th>
+  <td><input type=text id=NewPurchAmt class=data size=10 /></td>
+</tr>
+<tr>
+  <th align=right>Currency:</th>
+  <td><select id=NewPurchCurrSelect>
+        <option value="BTC">BTC</option>
+        <option value="CAD">CAD</option>
+      </select>
+  </td>
+</tr>
+<tr>
+  <th align=right>Rate to CAD:</th>
+  <td><input type=text id=NewPurchRate class=data size=12 /></td>
+</tr>
+<tr>
+  <th align=right>Fees Paid CAD:</th>
+  <td><input type=text id=NewPurchFees class=data size=10 /></td>
+</tr>
+<tr>
+  <th align=right>Source:</th>
+  <td><input type=text id=NewPurchSource class=data size=16 /></td>
+</tr>
+<tr>
+  <th align=right>Reference:</th>
+  <td><input type=text id=NewPurchRef class=data size=44 /></td>
+</tr>
+<tr>
+  <th/>
+  <td><button class=cmdbtn onclick="doNewPurchase()">Submit</button></td>
+</tr>
+</table>
+</fieldset>
+</div>
+
+<div id=LossesDiv class=tabcontent>
+<table>
+<tr>
+  <th align=right>Channel:</th>
+  <td class=data>b-liquid.money</td>
+</tr>
+<tr>
+  <th align=right>Currency:</th>
+  <td>
+    <select id=LossesCurrSelect>
+      <option value="BTC">BTC</option>
+      <option value="CAD">CAD</option>
+    </select>
+  </td>
+</tr>
+<tr>
+  <th align=right>Losses From:</th>
+  <td id=lossesfromwidgetcell></td>
+  <td align=left>(local)</td>
+</tr>
+<tr>
+  <th align=right>Losses To:</th>
+  <td id=lossestowidgetcell></td>
+  <td align=left>(local)</td>
+</tr>
+<tr>
+  <th></th>
+  <td>
+    <button class=cmdbtn onclick="doLossesQuery()">Submit</button>
+  </td>
+</tr>
+</table>
+
+<p>&nbsp;</p>
+
+<div id=LossesQueryResults>
+<table>
+<tr class=tableheaderrow>
+  <th>Date of Loss</th>
+  <th>Amount</th>
+  <th>Currency</th>
+  <th>Rate</th>
+  <th>Reference</th>
+</tr>
+<tr>
+  <td colspan=5>Submit query...</td>
+</tr>
+</table>
+</div>
+
+<p>&nbsp;</p>
+
+<fieldset style="display: inline">
+<table>
+<tr bgcolor=lightgray>
+  <th colspan=2>New Loss Details:</th>
+</tr>
+<tr>
+  <th align=right>Amount:</th>
+  <td><input type=text id=NewLossAmt class=data size=10 /></td>
+</tr>
+<tr>
+  <th align=right>Currency:</th>
+  <td>
+    <select id=NewLossCurrSelect>
+      <option value="BTC">BTC</option>
+      <option value="CAD">CAD</option>
+    </select>
+  </td>
+</tr>
+<tr>
+  <th align=right>Rate to CAD:</th>
+  <td><input type=text id=NewLossRate class=data size=12 /></td>
+</tr>
+<tr>
+  <th align=right>Reference:</th>
+  <td><input type=text id=NewLossRef class=data size=44 /></td>
+</tr>
+<tr>
+  <th/>
+  <td><button class=cmdbtn onclick="doNewLoss()">Submit</button></td>
+</tr>
+</table>
+</fieldset>
+</div>
+
+<div id=NotesDiv class=tabcontent>
+<table>
+<tr>
+<th align=right>Order:</th>
+<td class=data><input type=text class=data id=NoteOrderRefField size=16 />
+</tr>
+<tr>
+<th/>
+<td><button onclick="doNotesQuery()">Submit</button>
+</tr>
+</table>
+
+<p>&nbsp;</p>
+
+<div id=NotesQueryResultsDiv>
+</div>
+
+<p>&nbsp;</p>
+
+<fieldset style="display: inline">
+<table>
+<tr bgcolor=lightgray>
+  <th colspan=2>New Note:</th>
+</tr>
+<tr>
+  <th align=right>SaleID / OrderRef:</th>
+  <td><span id=NewNoteSaleId class=data>abcdef0123456789</td>
+</tr>
+<tr>
+  <th align=right>Message:</th>
+  <td><input type=text id=NewNoteMessage class=data size=32 /></td>
+</tr>
+<tr>
+  <th align=right>Source:</th>
+  <td><input type=text id=NewNoteSource class=data size=20 /></td>
+</tr>
+<tr>
+  <th align=right valign=top>Client Visible:</th>
+  <td>
+    <input type=radio id=NoteCliVisYes name=NoteCliVis value="YES" />
+    <label for=NoteCliVisYes>YES</label><br>
+    <input type=radio id=NoteCliVisNo name=NoteCliVis value="NO" />
+    <label for=NoteCliVisNo>NO</label>
+  </td>
+</tr>
+<tr>
+  <th/>
+  <td><button onclick="doNewNote()">Submit</button></td>
+</tr>
+</table>
+</fieldset>
+</div>
+
+<div id=SARsDiv class=tabcontent>
+<table>
+<tr>
+<th align=right>Order Ref:</th>
+<td class=data><input type=text class=data id=SAROrderRefField size=16 />
+</tr>
+<tr>
+<th/>
+<td><button onclick="doSARsQuery()">Submit</button>
+</tr>
+</table>
+
+<p>&nbsp;</p>
+
+<div id=SARsQueryResultsDiv>
+</div>
+
+<p>&nbsp;</p>
+
+<fieldset style="display: inline">
+<table>
+<tr bgcolor=lightgray>
+  <th colspan=2>New SAR:</th>
+</tr>
+<tr>
+  <th align=right>OrderRef:</th>
+  <td><span id=NewSARSaleId class=data>abcdef0123456789</td>
+</tr>
+<tr>
+  <th align=right>Reason:</th>
+  <td><input type=text id=NewSARReason class=data size=32 /></td>
+</tr>
+<tr>
+  <th align=right>Our Ref:</th>
+  <td><input type=text id=NewSAROurRef class=data size=32 /></td>
+</tr>
+<tr>
+  <th align=right>FINTRAC Ref:</th>
+  <td><input type=text id=NewSARFINTRACRef class=data size=32 /></td>
+</tr>
+<tr>
+  <th/>
+  <td><button onclick="doNewSAR()">Submit</button></td>
+</tr>
+</table>
+</fieldset>
+</div>
+
+<p>&nbsp;</p>
+
+<div class=footer>
+<span id=StatusArea>
+OK
+</span>
+</div>
+
+<script type="text/javascript">
+</script>
+</body>
+</html>

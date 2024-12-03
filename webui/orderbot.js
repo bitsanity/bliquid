@@ -1,31 +1,103 @@
-const BOOKITURL = "ws://localhost:8443"
-const BOOKITREQ = {
-  jsonrpc: "2.0",
-  method: "sale",
-  params: [],
-  id: 0
-}
-
-var ctx, crx
+var ctx, crx // parameters
+var Rates = {}
+//sampleresult = {
+//  "bitcoin":{"usd":96353,"cad":135208},
+//  "ethereum":{"usd":3318.74,"cad":4657.03}
+//}
 
 function initOrderbot() {
   $('#rxAddrArrow').hide()
   $('#bookArrow').hide()
   $('#ClientReceiveAddress').val("")
-  getRates() // fetch from server and update Rates variable
+
+  $("#ClientSendCurrency").html( ctx )
+  $("#ClientSendCurrencyFlag").html( toFlagImage(ctx) )
+
+  PubSub.publish( 'CtxCurr', ctx )
+  PubSub.publish( 'CtxMethod', null )
+
+  $("#ClientReceiveCurrency").html( crx )
+  $("#ClientReceiveCurrencyFlag").html( toFlagImage(crx) )
+
+  PubSub.publish( 'CrxCurr', crx )
+  PubSub.publish( 'CrxMethod', null )
+
+  $("#ClientSendAmountInput").focus()
+
+  getRates()
 }
 
-function getFees() {
-  $('#Fees').html = ""
+function rateInEffect() {
+  if (ctx === 'BTC' || ctx === 'btc') {
+    if (crx === 'CAD' || crx === 'cad')
+      return Rates['bitcoin']['cad']
+    else if (crx === 'USD' || crx === 'usd')
+      return Rates['bitcoin']['usd']
+  }
+  else if (ctx === 'ETH' || ctx === 'eth') {
+    if (crx === 'CAD' || crx === 'cad')
+      return Rates['ethereum']['cad']
+    else if (crx === 'USD' || crx === 'usd')
+      return Rates['ethereum']['usd']
+  }
+  else if (ctx === 'CAD' || ctx === 'cad') {
+    if (crx === 'BTC' || crx === 'btc')
+      return Math.floor(1.0 / parseFloat(Rates['bitcoin']['cad']) * 100000000)
+             / 100000000.0
+    if (crx === 'ETH' || crx === 'eth')
+      return Math.floor(1.0 / parseFloat(Rates['ethereum']['cad']) * 100000000)
+             / 100000000.0
+  }
+  else if (ctx === 'USD' || ctx === 'usd') {
+    if (crx === 'BTC' || crx === 'btc')
+      return Math.floor(1.0 / parseFloat(Rates['bitcoin']['usd']) * 100000000)
+             / 100000000.0
+    if (crx === 'ETH' || crx === 'eth')
+      return Math.floor(1.0 / parseFloat(Rates['ethereum']['usd']) * 100000000)
+             / 100000000.0
+  }
+}
+
+function getRates() {
+  fetch( '/cgi-bin/rates' )
+  .then( async rsp => {
+    if (!rsp.ok) throw 'rates response failed'
+    let obj = await rsp.json()
+    Rates = obj.result
+    $('#MarketRate').html( rateInEffect() )
+  } )
+  .catch( err => { console.log } )
+}
+
+function getFees( meth ) {
+  $('#Fees').html( "" )
 
   let ctxAmount = $('#ClientSendAmountInput').val()
-  if (Number.parseFloat(ctxAmount) == 0) {
-    $('#Fees').html = "0.00"
-    $('#ClientReceiveAmount').html = "0.00"
+  if (    ctxAmount == null
+       || ctxAmount.length == 0
+       || Number.parseFloat(ctxAmount) == 0.0) {
+    $('#Fees').html( "0.00" )
+    $('#ClientReceiveAmount').html( "0.00" )
     return 0
   }
 
-  WSSCX.getFees( ctxAmount, ctx, crx, $('#CrxMethodSelect').val() )
+  let req = {
+    ctxAmount : ctxAmount,
+    ctxCurr : ctx,
+    crxCurr : crx,
+    crxMethod : $('#CrxMethodSelect').val()
+  }
+
+  fetch( '/cgi-bin/fees', { method: "POST", body: JSON.stringify(req) } )
+  .then( async rsp => {
+    if (!rsp.ok) throw 'invalid fees response'
+    let obj = await rsp.json()
+    PubSub.publish( 'Fees', obj.result )
+  } )
+  .catch( err => {
+    $('#Fees').html( "" )
+    return
+  } )
 }
 
 PubSub.subscribe( 'Fees', rsp => {
@@ -39,16 +111,17 @@ PubSub.subscribe( 'Fees', rsp => {
   $('#Fees').html( contents )
 
   // client to receive:  toCAD(amount * rate) - fees (in CAD)
-  let toclientcad = toCAD( ctxAmount, ctx ) - rsp.total
+  let ctxAmount = $('#ClientSendAmountInput').val()
+  let toclientcad = UIUTILS.toCAD( ctxAmount, ctx ) - rsp.total
 
   if (toclientcad < 0) {
     $('#ClientReceiveAmount').html( "0.00" )
   }
   else {
-    let toclientamt = cadToCurr( toclientcad, crx )
+    let toclientamt = UIUTILS.cadToCurr( toclientcad, crx )
     $('#ClientReceiveAmount').html( toclientamt )
   }
-)
+} )
 
 function bookIt() {
   let sendAmt = $('#ClientSendAmountInput').val()
@@ -57,11 +130,8 @@ function bookIt() {
     return
   }
 
-  let pair = (ctx === 'CAD' || ctx === 'USD' || ctx === 'EUR' || ctx === 'GBP')
-             ? crx + ctx
-             : ctx + crx
-
-  if (!Rates[pair]) {
+  let rate = $('#MarketRate').html()
+  if (rate == null || rate.length == 0 || parseFloat(rate) == 0.0) {
     alert( 'Valid rate required.' )
     return
   }
@@ -80,37 +150,29 @@ function bookIt() {
 
   let order = {
     channel : "b-liquid.money",
-    ctxMethod : $('#CtxMethodSelect').val(),
     ctxAmount : sendAmt,
     ctxCurr : ctx,
+    ctxMethod : $('#CtxMethodSelect').val(),
+    rateSubmitted : rate,
     crxCurr : crx,
     crxCoords : crxObj
   }
 
-  let params = [ order ]
-  let req = JSON.parse( JSON.stringify(BOOKITREQ) )
-  req.params = params
+  fetch(
+    '/cgi-bin/bookit',
+    { method: "POST", body: JSON.stringify(order) }
+  ).then( async rsp => {
+    if (rsp.ok) {
+      let obj = await rsp.json()
 
-  let socket = new WebSocket( BOOKITURL )
-
-  socket.addEventListener( 'open', (e) => {
-    socket.send( JSON.stringify(req) )
-  } )
-
-  socket.addEventListener( 'message', (msg) => {
-    try {
-      let rsp = JSON.parse( msg.data )
-      if (rsp.error) throw rsp.error.message
-
-      let id = rsp.result.ID
-
-      // goto our page that shows the payment instructions
-      window.open( './ctxInstructions.html?id=' + id, '_self' )
+      if (obj.error) {
+        alert( obj.error.message )
+      } else {
+        let orderid = obj.result.ID
+        window.open( '/status.html?orderid=' + orderid, '_self' )
+      }
     }
-    catch( e ) {
-      alert( "error: " + e.toString() )
-    }
-  } )
+  } ).catch( err => { console.log } )
 }
 
 function toFlagImage(curr) {
@@ -135,6 +197,13 @@ function toFlagImage(curr) {
 }
 
 function sendAmountChanged() {
+  if ( parseFloat($("#ClientSendAmountInput").val()) == 0.0 ) {
+    $('#sendAmountArrow').show()
+    $('#bookArrow').hide()
+    $('#rxAddrArrow').hide()
+    return
+  }
+
   $('#sendAmountArrow').hide()
   $('#bookArrow').hide()
   $('#rxAddrArrow').show()
@@ -365,6 +434,25 @@ function setMethods( curr, isCtx, seldiv ) {
 PubSub.subscribe( 'CtxCurr', (curr) => {
   let seldiv = $('#CtxMethod')
   setMethods( curr, true, seldiv )
+
+  if (ctx == 'CAD' || ctx == 'USD' || ctx == 'GBP' || ctx == 'EUR') {
+    $("#ClientSendAmount").html(
+      "<input id=ClientSendAmountInput type=number required " +
+      "placeholder=\"000.00\" step=\"0.01\" min=\"0\" " +
+      "onchange=\"sendAmountChanged();\" " +
+      "/>"
+    )
+    $("#ClientReceiveAmount").html( "0.00000" )
+  }
+  else {
+    $("#ClientSendAmount").html(
+      "<input id=ClientSendAmountInput type=number required " +
+      "placeholder=\"0.00000\" step=\"0.00001\" min=\"0\" " +
+      "onchange=\"sendAmountChanged()\" " +
+      " />"
+    )
+    $("#ClientReceiveAmount").html( "000.00" )
+  }
 } )
 
 PubSub.subscribe( 'CrxCurr', (curr) => {
@@ -383,12 +471,12 @@ PubSub.subscribe( 'CrxMethod', (meth) => {
 
   let dv = $('#ClientReceiveCoordsDiv')
   if (meth == 'BTCMAINNET') {
-    dv.html( '<input id=BTCMAINNET type=text required size=42 maxlength=75 ' +
+    dv.html( '<input id=BTCMAINNET type=text required size=43 maxlength=75 ' +
       'placeholder="Bitcoin/BTC mainnet address" ></input>' )
   }
   else if (meth == 'BTCLIGHTNING') {
     dv.html( '<input id=BTCLIGHTNING type=text required size=42 maxlength=75 '
-      + 'placeholder="Bitcoin/Lightning email address" ></input>' )
+      + 'placeholder="Bitcoin Lightning email-like address" ></input>' )
   }
   else if (meth == 'INTERAC') {
     dv.html( '<input id=INTERAC type=text required size=42 maxlength=75 ' +
@@ -435,50 +523,17 @@ PubSub.subscribe( 'CrxMethod', (meth) => {
 
   setMethodGlyph( meth, false )
 
-  getFees()
+  getFees( meth )
 } )
 
 // ====== ===== ===== =====
-// START
+// MAIN/START
 // ====== ===== ===== =====
-
-initOrderbot()
 
 let urlparams = document.URL.substring(document.URL.indexOf('?'))
 let params = new URLSearchParams( urlparams )
+ctx = (params.get('ctx') != null) ? params.get('ctx') : 'CAD'
+crx = (params.get('crx') != null) ? params.get('crx') : 'BTC'
 
-ctx = params.get('ctx')
-crx = params.get('crx')
+initOrderbot()
 
-if (ctx == 'CAD' || ctx == 'USD' || ctx == 'GBP' || ctx == 'EUR') {
-  $("#ClientSendAmount").html(
-    "<input id=ClientSendAmountInput type=number required " +
-    "placeholder=\"000.00\" step=\"0.01\" min=\"0\" " +
-    "onchange=\"sendAmountChanged();\" " +
-    "/>"
-  )
-  $("#ClientReceiveAmount").html( "0.00000" )
-}
-else {
-  $("#ClientSendAmount").html(
-    "<input id=ClientSendAmountInput type=number required " +
-    "placeholder=\"0.00000\" step=\"0.00001\" min=\"0\" " +
-    "onchange=\"sendAmountChanged()\" " +
-    " />"
-  )
-  $("#ClientReceiveAmount").html( "000.00" )
-}
-
-$("#ClientSendCurrency").html( ctx )
-$("#ClientSendCurrencyFlag").html( toFlagImage(ctx) )
-
-PubSub.publish( 'CtxCurr', ctx )
-PubSub.publish( 'CtxMethod', null )
-
-$("#ClientReceiveCurrency").html( crx )
-$("#ClientReceiveCurrencyFlag").html( toFlagImage(crx) )
-
-PubSub.publish( 'CrxCurr', crx )
-PubSub.publish( 'CrxMethod', null )
-
-$("#ClientSendAmountInput").focus()

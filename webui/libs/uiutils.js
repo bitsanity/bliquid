@@ -1,20 +1,44 @@
 var UIUTILS = (function() {
 
-  function toCAD( amt, curr ) {
-    let result = amt
+  function ctxInterval( method ) {
+    if (method === 'BTCMAINNET')
+      return BLDate.FOURHOURSMS
 
-    if (curr === 'USD')
-      result = Number.parseFloat(amt) / Number.parseFloat(Rates.USDCAD)
+    if (method === 'BTCLIGHTNING')
+      return BLDate.FOURHOURSMS
+
+    if (method === 'INTERAC')
+      return BLDate.TWENTYFOURHOURSMS
+
+    if (method === 'CANADAPOST')
+      return BLDate.TWENTYFOURHOURSMS * 10 // ten days
+
+    return 0
+  }
+
+  function crxInterval( method ) {
+    return BLDate.TWENTYFOURHOURSMS
+  }
+
+  function toCAD( amt, curr ) {
+    let result
+
+    if (curr === 'CAD') {
+      result = amt
+    }
+    else if (curr === 'USD') {
+      let usdcad =   Number.parseFloat( Rates['bitcoin']['cad'] )
+                   / Number.parseFloat( Rates['bitcoin']['usd'] )
+      result = Number.parseFloat(amt) * usdcad
+    }
     else if (curr == 'BTC')
-      result = Number.parseFloat(amt) * Number.parseFloat(Rates.BTCCAD)
+      result =   Number.parseFloat(amt)
+               * Number.parseFloat(Rates['bitcoin']['cad'])
     else if (curr == 'ETH')
-      result = Number.parseFloat(amt) * Number.parseFloat(Rates.ETHCAD)
-    else if (curr == 'XMR')
-      result = Number.parseFloat(amt) * Number.parseFloat(Rates.XMRCAD)
-    else if (curr == 'DAI')
-      result = Number.parseFloat(amt) * Number.parseFloat(Rates.DAICAD)
-    else if (curr == 'USDC')
-      result = Number.parseFloat(amt) * Number.parseFloat(Rates.USDCCAD)
+      result =   Number.parseFloat(amt)
+               * Number.parseFloat(Rates['ethereum']['cad'])
+    else
+      throw 'uiutils.toCAD unsupported currency: ' + curr
 
     result = Math.floor(result * 100.0) / 100.0
     return result
@@ -26,35 +50,27 @@ var UIUTILS = (function() {
     if (curr === 'CAD') {
       result = Math.floor( result * 100.0 ) / 100.0
     } else if (curr === 'USD') {
-      result = Number.parseFloat(amt) / Number.parseFloat(Rates.USDCAD)
-      result = Math.floor( result * 100.0 ) / 100.0
-    } else if (curr === 'GBP') {
-      result = Number.parseFloat(amt) / Number.parseFloat(Rates.GBPCAD)
-      result = Math.floor( result * 100.0 ) / 100.0
-    } else if (curr === 'EUR') {
-      result = Number.parseFloat(amt) / Number.parseFloat(Rates.EURCAD)
+      let usdcad =   Number.parseFloat( Rates['bitcoin']['cad'] )
+                   / Number.parseFloat( Rates['bitcoin']['usd'] )
+      result = Number.parseFloat(amt) / usdcad
       result = Math.floor( result * 100.0 ) / 100.0
     } else if (curr == 'BTC') {
-      result = Number.parseFloat(amt) / Number.parseFloat(Rates.BTCCAD)
+      result =   Number.parseFloat(amt)
+               / Number.parseFloat( Rates['bitcoin']['cad'] )
       result = Math.floor( result * 100000000.0 ) / 100000000.0
     } else if (curr == 'ETH') {
-      result = Number.parseFloat(amt) / Number.parseFloat(Rates.ETHCAD)
-      result = Math.floor( result * 1000000.0 ) / 1000000.0
-    } else if (curr == 'XMR') {
-      result = Number.parseFloat(amt) / Number.parseFloat(Rates.XMRCAD)
-      result = Math.floor( result * 1000000.0 ) / 1000000.0
-    } else if (curr == 'USDC') {
-      result = Number.parseFloat(amt) / Number.parseFloat(Rates.USDCCAD)
-      result = Math.floor( result * 10000.0 ) / 10000.0
-    } else if (curr == 'DAI') {
-      result = Number.parseFloat(amt) / Number.parseFloat(Rates.DAICAD)
-      result = Math.floor( result * 10000.0 ) / 10000.0
-    }
+      result =   Number.parseFloat(amt)
+               / Number.parseFloat(Rates['ethereum']['cad'])
+      result = Math.floor( result * 100000000.0 ) / 100000000.0
+    } else
+      throw 'uiutils.cadToCurr unrecognized curr: ' + curr
 
     return result
   }
 
   return {
+    ctxInterval : ctxInterval,
+    crxInterval : crxInterval,
     toCAD : toCAD,
     cadToCurr : cadToCurr
   }
