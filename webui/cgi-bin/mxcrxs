@@ -1,4 +1,4 @@
 #!/home/skull/nodejs/bin/node
 
-require( './cgitows.js' ).doit( "mxcrxs" )
+require( './cgitowsadmin.js' ).doit( "mxcrxs" )
 

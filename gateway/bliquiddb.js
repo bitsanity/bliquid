@@ -105,7 +105,6 @@ module.exports.addPurchase =
     Ref : pref
   }
   BLDB.getCollection('PURCHASES').insert( purch )
-
   return { Added : purch.Added }
 }
 

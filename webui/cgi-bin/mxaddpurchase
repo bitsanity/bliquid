@@ -1,6 +1,6 @@
 #!/home/skull/nodejs/bin/node
 
-const cgitows = require( './cgitows.js' )
+const cgitows = require( './cgitowsadmin.js' )
 
 cgitows.doit( "mxaddpurchase" )
 

@@ -3,16 +3,17 @@ const wss = require( 'ws' )
 const crypto = require( 'crypto' )
 const acl = require( './acl.js' )
 const bitcoin = require( './bitcoind.js' )
+const lightning = require( './lightning.js' )
 const ethereum = require( './ethereum.js' )
 const ecjson = require( './ecjsonrpc.js' )
 const rates = require( './rates.js' )
 const bldate = require( './bldate.js' )
 const bliquiddb = require( './bliquiddb.js' )
 
-const readline = require( 'readline' ).createInterface( {
-  input: process.stdin,
-  output: process.stdout
-} )
+//const readline = require( 'readline' ).createInterface( {
+//  input: process.stdin,
+//  output: process.stdout
+//} )
 
 const PORT = 8888
 const SERVERLOG = './gateway.txt'
@@ -67,9 +68,14 @@ function calcFees( ctxAmount, ctxCurr, crxCurr, crxMethod ) {
     total: 0.0
   }
 
+  let valueincad = rates.toCAD( ctxAmount, ctxCurr )
+
   let fee
+
   if (crxMethod === 'INTERAC') {
-    fee = 1.50
+    fee =   1.50 + rates.toCurrency(.0025 * valueincad) // per-deal charge
+          + 3.50 // toward interac monthly subscription
+
     resObj.fees["INTERAC e-Transfer"] = rates.toCurrency( fee )
     resObj.total += fee
   }
@@ -92,7 +98,6 @@ function calcFees( ctxAmount, ctxCurr, crxCurr, crxMethod ) {
     resObj.total += fee
   }
 
-  let valueincad = rates.toCAD( ctxAmount, ctxCurr )
   let ourFee = Number.parseFloat(valueincad) * 0.015
   if (ourFee < 3.0) ourFee = 3.0
   resObj.total += ourFee
@@ -104,21 +109,28 @@ function calcFees( ctxAmount, ctxCurr, crxCurr, crxMethod ) {
   return resObj
 }
 
-function getNextRxAddress( label, curr ) {
+function getNextRxAddress( label, curr, meth ) {
 
   return new Promise( (resolve,reject) => {
 
-    if (curr === 'BTC') {
+    if (meth === 'BTCMAINNET') {
       bitcoin.nextAddress( label )
       .then( res => {
         resolve( res )
       } )
       .catch( reject )
     }
-    else if (curr === 'CAD')
+    else if (meth === 'BTCLIGHTNING') {
+      throw 'use invoice instead'
+    }
+    else if (meth === 'CANADAPOST') {
+      resolve(
+        'B-Liquid Cryptos Ltd.,c/o 1831 San Juan Ave,Victoria BC,V8N2J1' )
+    }
+    else if (meth === 'INTERAC')
       resolve( 'admin@b-liquid.money' )
     else
-      reject( 'invalid curr: ' + curr )
+      reject( 'invalid curr: ' + curr + ', meth: ' + meth )
   } )
 }
 
@@ -145,10 +157,6 @@ async function newSale( clientip, order ) {
 
   let toClientCad = cadAmt - fees.total
   order.crxAmount = rates.cadToCurr( toClientCad, order.crxCurr )
-
-  let ourRxAddr = await getNextRxAddress( '', order.ctxCurr )
-  if (!ourRxAddr) throw 'failed to create a receive address'
-
   let rateInEffect =
     Number.parseFloat(order.crxAmount) / Number.parseFloat(order.ctxAmount )
 
@@ -157,13 +165,24 @@ async function newSale( clientip, order ) {
     clientip,
     rateInEffect,
     order.ctxMethod,
-    ourRxAddr,
+    'tbd', // immediately updated below
     order.ctxAmount,
     order.ctxCurr,
     fees,
     order.crxAmount,
     order.crxCurr,
     order.crxCoords )
+
+  let ourRxAddr = null
+  if (order.ctxMethod === 'BTCLIGHTNING') {
+    ourRxAddr = await lightning.invoice( order.ctxAmount, saleId, 'B-LIQUID' )
+  }
+  else {
+    ourRxAddr = await getNextRxAddress( saleId, order.ctxCurr, order.ctxMethod )
+  }
+
+  if (!ourRxAddr) throw 'failed to create a receive address'
+  bliquiddb.updateSaleOurRxAddress( saleId, ourRxAddr )
 
   if (order.ctxCurr === 'BTC') bitcoin.labelAddress( ourRxAddr, saleId )
 
@@ -174,10 +193,22 @@ async function newSale( clientip, order ) {
 // MAIN
 // ====
 
+process.on( 'SIGHUP', () => {
+  log( 'SIGHUP' )
+} )
+
 log( 'start' )
 
 const wsServer = new wss.Server( {
   port: PORT
+} )
+
+wsServer.on( 'close', (code, reason) => {
+  log( 'close: code=' + code + ' reason=' + reason )
+} )
+
+wsServer.on( 'error', (e) => {
+  log( e.message )
 } )
 
 wsServer.on( 'connection', (ws, req) => {
@@ -197,7 +228,6 @@ wsServer.on( 'connection', (ws, req) => {
         throw 'Bad Request: not a valid black message'
 
       // ensure blackobj.spkhex is a recognized client
-      console.log( 'spkhex: ' + blackobj.spkhex )
       if (!acl.isEnabled(blackobj.spkhex)) throw 'not allowed'
 
       redobj = ecjson.blackToRed( sessionkey.prv, blackobj )
@@ -206,7 +236,7 @@ wsServer.on( 'connection', (ws, req) => {
     }
     catch( ex )
     {
-      log( ex.toString() )
+      log( ex )
       ws.send( JSON.stringify(redError(400, ex.toString(), 0)) )
       ws.close()
       return
@@ -242,14 +272,15 @@ wsServer.on( 'connection', (ws, req) => {
         resobj = await newSale( clientip, redobj.params[0] )
       } else if (redobj.method === 'orderstatus') {
         resobj = bliquiddb.getSale( redobj.params[0].orderId )
-      } else {
+      }
+      else
+      {
         if (!acl.isAdmin(blackobj.spkhex)) throw 'must be admin'
       }
 
       // --------------------------------------------
       // Functions for which caller must be an admin
       // --------------------------------------------
-
       if (redobj.method === 'mxctxs') {
         resobj = bliquiddb.waitingPayments( redobj.params[0] )
       }
@@ -258,6 +289,9 @@ wsServer.on( 'connection', (ws, req) => {
       }
       else if (redobj.method === 'mxinventory') {
         resobj = bliquiddb.inventory( redobj.params[0] )
+      }
+      else if (redobj.method === 'mxlightningfunds') {
+        resobj = await lightning.listFunds()
       }
       else if (redobj.method === 'mxaddpurchase') {
         resobj = bliquiddb.addPurchase(
@@ -337,9 +371,8 @@ wsServer.on( 'connection', (ws, req) => {
           redobj.params[0].fromDatetime,
           redobj.params[0].toDatetime )
       }
-      else {
-        resobj = 'unrecognized method: ' + redobj.method
-      }
+
+      if (!resobj) resobj = 'unrecognized method: ' + redobj.method
     }
     catch( ex ) {
       ws.send( JSON.stringify(blackError(
@@ -377,24 +410,24 @@ wsServer.on( 'connection', (ws, req) => {
 } )
 
 ethereum.syncEpks()
-//setInterval( ethereum.syncEpks, 3600000 )
+setInterval( ethereum.syncEpks, 3600000 )
 
 rates.fetchRates()
-//setInterval( rates.fetchRates, 3600000 )
+setInterval( rates.fetchRates, 3600000 )
 
 bitcoin.fetchFee()
-//setInterval( bitcoin.fetchFee, 1800000 )
+setInterval( bitcoin.fetchFee, 1800000 )
 
-readline.question( 'db password: ', (pass) => {
+//readline.question( 'db password: ', (pass) => {
   try {
-    let dbpass = Buffer.from( pass )
+    let dbpass = Buffer.from( process.env.DB_PWD )
     let hashpass = crypto.createHash('sha256').update(dbpass).digest()
     bliquiddb.init( hashpass )
-    readline.close()
+//  readline.close()
   }
   catch( e ) {
     log( e )
     process.exit( 1 )
   }
-} )
+//} )
 

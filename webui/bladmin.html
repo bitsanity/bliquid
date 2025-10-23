@@ -84,6 +84,7 @@
 
 <table>
 <tr class=tableheaderrow>
+  <th></th>
   <th>Currency</th>
   <th>Inventory</th>
   <th>Sales Gains</th>
@@ -91,6 +92,7 @@
   <th>Fees Paid</th>
 </tr>
 <tr>
+  <td align=right><img src=img/bitcoin-btc-logo.svg height=25 /></td>
   <td class=label>BTC</td>
   <td id=btcInventory class=data>0.00000000</td>
   <td id=btcGains class=data>0000.00</td>
@@ -98,6 +100,7 @@
   <td id=btcFeesPaid class=reddata>00.00</td>
 </tr>
 <tr>
+  <td align=right><img src=img/Flag_of_Canada.svg height=15 /></td>
   <td class=label>CAD</td>
   <td id=cadInventory class=data>0.00</td>
   <td>-</td>
@@ -106,6 +109,30 @@
 </tr>
 </table>
 
+<p>&nbsp;</p>
+
+<table style="border: 1px solid black;border-collapse: collapse;">
+<tr>
+<th style="background: black; color: white;">
+<img src=img/lightning_logo.svg height=30 />
+</th>
+<th style="font-weight: bold; background: black; color: white;">
+Lightning Funds&nbsp;
+</th>
+</tr>
+<tr>
+<td align=right class=label>Outputs:</td>
+<td align=right id=LNOutputs class=data>0.00000000</td>
+</tr>
+<tr>
+<td align=right class=label>Channels:</td>
+<td align=right id=LNChannels class=data>0.00000000</td>
+</tr>
+<tr bgcolor=lightgrey>
+<td align=right class=label>Total:</td>
+<td align=right id=LNTotal class=data>0.00000000</td>
+</tr>
+</table>
 </div>
 
 <div id=PurchDiv class=tabcontent>
@@ -392,9 +419,7 @@
 <p>&nbsp;</p>
 
 <div class=footer>
-<span id=StatusArea>
-OK
-</span>
+<span id=StatusArea>hello</span>
 </div>
 
 <script type="text/javascript">

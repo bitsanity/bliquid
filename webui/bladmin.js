@@ -27,6 +27,8 @@ function initCTXTab() {
     let obj = await rsp.json()
     let rsparr = obj.result
 
+    // ctx.OurRxAddr
+
     let content =
       "<table>" +
       "<tr class=tableheaderrow>" +
@@ -35,7 +37,7 @@ function initCTXTab() {
       "<th>CTX Amount</th>" +
       "<th>CTX Currency</th>" +
       "<th>CTX Method</th>" +
-      "<th colspan=2>Mark as Received</th>" +
+      "<th>Status</th>" +
       "</tr>"
 
     if (!rsparr || rsparr.length == 0)
@@ -47,17 +49,11 @@ function initCTXTab() {
       content +=
       "<tr>" +
         "<td>" + ctx.ID + "</td>" +
-        "<td>" + BLDate.toReadableDate( ctx.Submitted ) + "</td>" +
+        "<td>" + BLDate.toReadableDate( ctx.Submitted, true ) + "</td>" +
         "<td>" + ctx.CtxAmount + "</td>" +
         "<td>" + ctx.CtxCurr + "</td>" +
         "<td>" + ctx.CtxMethod + "</td>" +
-        "<td><span class=label>Ref:</span> " + 
-          '<input class=data type=text id=ctx' + ctx.ID + ' size=24 />' +
-        "</td>" + 
-        "<td>" +
-          '<button class=databutton onclick="markReceived(\'' + ctx.ID +
-            '\')")">Received</button>' +
-        '</td>' +
+        "<td>" + "<span id=ctx" + ctx.ID + "></span>" +
       "</tr>"
     } )
 
@@ -66,28 +62,6 @@ function initCTXTab() {
 
   } )
   .catch( err => { showError( err ) } )
-}
-
-async function markReceived( orderid ) {
-  let ref = $('#ctx' + orderid).val()
-
-  if (!ref || ref.length == 0) {
-    alert( 'Reference to incoming payment is mandatory.' )
-    return
-  }
-
-  let mkrxreq = {
-    saleId : orderid,
-    ctxRef : ref
-  }
-
-  let rsp = await fetch( '/cgi-bin/mxctxreceived',
-      { method: "POST", body: JSON.stringify(mkrxreq) } )
-
-  if (!rsp.ok) throw 'Invalid response to mxctxreceived'
-  let obj = await rsp.json()
-  let ack = obj.result
-  alert( 'Marked Received at: ' + BLDate.toReadableDate(ack.Received) )
 }
 
 // settlements to be received by clients
@@ -123,7 +97,7 @@ function initCRXTab() {
       content +=
         "<tr>" +
         "<td>" + crx.ID + "</td>" +
-        "<td>" + BLDate.toReadableDate( crx.CtxReceived ) + "</td>" +
+        "<td>" + BLDate.toReadableDate( crx.CtxReceived, true ) + "</td>" +
         "<td>" + crx.CrxAmount + "</td>" +
         "<td>" + crx.CrxCurr + "</td>" +
         "<td>" + crx.CrxCoords.CrxMethod + "</td>" +
@@ -174,7 +148,7 @@ async function markSent( orderid ) {
   if (!rsp.ok) throw 'Invalid response to mxcrxreceived'
   let obj = await rsp.json()
   let ack = obj.result
-  alert( 'Marked Sent at: ' + BLDate.toReadableDate(ack.Sent) )
+  alert( 'Marked Sent at: ' + BLDate.toReadableDate(ack.Sent, true) )
 }
 
 function initPNLTab() {
@@ -226,6 +200,19 @@ async function doQuery() {
     let invt = obj2.result
     $( "#btcInventory" ).html( invt['BTC'] )
     $( "#cadInventory" ).html( invt['CAD'] )
+
+    let rsp3 = await fetch( '/cgi-bin/mxlightningfunds',
+      { method: "POST", body: JSON.stringify(CHANNEL) } )
+    if (!rsp3.ok) throw 'Invalid response to mxlightningfunds'
+    let obj3 = await rsp3.json()
+    let lnf = obj3.result
+    $( "#LNOutputs" ).html(
+      parseInt(lnf.outputs) / 1000 + ' satoshis' + '&nbsp;' )
+    $( "#LNChannels" ).html(
+      parseInt(lnf.channels) / 1000 + ' satoshis' + '&nbsp;' )
+    $( "#LNTotal" ).html(
+      (parseInt(lnf.channels) + parseInt(lnf.outputs)) / 1000 +
+      ' satoshis' + '&nbsp;' )
   }
   catch( err ) {
     showError( err )
@@ -271,7 +258,7 @@ async function doNewPurchase() {
     if (!rsp.ok) throw 'Invalid response'
     let body = await rsp.json()
     let answer = body.result
-    alert( 'Purchase Added: ' + BLDate.toReadableDate(answer.Added) )
+    alert( 'Purchase Added: ' + BLDate.toReadableDate(answer.Added, true) )
     initPurchTab()
   }
   catch( err ) { showError( err ) }
@@ -333,7 +320,8 @@ async function doPurchQuery() {
       purchases.forEach( purch => {
         html += '<tr>' +
           '<td class=label>' + purch.Curr + '</td>' +
-          '<td class=data>' + BLDate.toReadableDate(purch.Added) + '</td>' +
+          '<td class=data>' + BLDate.toReadableDate(purch.Added, true) +
+          '</td>' +
           '<td class=data>' + purch.Amount + '</td>' +
           '<td class=data>' + purch.Rate + '</td>' +
           '<td class=data>' + purch.Fees + '</td>' +
@@ -380,7 +368,7 @@ async function doNewLoss() {
     if (!rsp.ok) throw 'Response to mxaddloss not ok'
     let body = await rsp.json()
     let answer = body.result
-    alert( 'Loss Added: ' + BLDate.toReadableDate(answer.When) )
+    alert( 'Loss Added: ' + BLDate.toReadableDate(answer.When, true) )
     initLossesTab()
   }
   catch( err ) { showError( err ) }
@@ -441,7 +429,7 @@ async function doLossesQuery() {
 
       losses.forEach( loss => {
         html += '<tr>' +
-          '<td class=data>' + BLDate.toReadableDate(loss.When) + '</td>' +
+          '<td class=data>' + BLDate.toReadableDate(loss.When, true) + '</td>' +
           '<td class=data>' + loss.Amount + '</td>' +
           '<td class=data>' + loss.Curr + '</td>' +
           '<td class=data>' + loss.Rate + '</td>' +
@@ -497,7 +485,8 @@ function doNotesQuery() {
       htmld +=
         '<tr>' +
         '<td class=data>' + note.SaleID + '</td>' +
-        '<td class=data>' + BLDate.toReadableDate(note.Created) + '</td>' +
+        '<td class=data>' + BLDate.toReadableDate(note.Created, true) +
+        '</td>' +
         '<td class=data>' + note.Message + '</td>' +
         '<td class=data>' + note.Source + '</td>' +
         '<td class=data valign=top>' +
@@ -542,7 +531,7 @@ function doNewNote() {
   .then( async rsp => {
     if (!rsp.ok) throw 'invalid mxaddnote response'
     let obj = await rsp.json()
-    alert( 'Note Added: ' + BLDate.toReadableDate(obj.result.Created) )
+    alert( 'Note Added: ' + BLDate.toReadableDate(obj.result.Created, true) )
     initNoteTab()
   } )
   .catch( err => { showError( err ) } )
@@ -586,7 +575,7 @@ function doSARsQuery() {
       htmld +=
         '<tr>' +
         '<td class=data>' + sar.SaleID + '</td>' +
-        '<td class=data>' + BLDate.toReadableDate(sar.Logged) + '</td>' +
+        '<td class=data>' + BLDate.toReadableDate(sar.Logged, true) + '</td>' +
         '<td class=data>' + sar.Reason + '</td>' +
         '<td class=data>' + sar.OurRef + '</td>' +
         '<td class=data>' + sar.FINTRACRef + '</td>' +
@@ -620,7 +609,7 @@ function doNewSAR() {
   .then( async rsp => {
     if (!rsp.ok) throw 'invalid mxaddsar response'
     let obj = await rsp.json()
-    alert( 'SAR Logged: ' + BLDate.toReadableDate(obj.result.Logged) )
+    alert( 'SAR Logged: ' + BLDate.toReadableDate(obj.result.Logged, true) )
     initSARsTab()
   } )
   .catch( err => { showError( err ) } )

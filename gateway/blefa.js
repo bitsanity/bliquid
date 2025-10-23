@@ -19,6 +19,8 @@ module.exports.loadDatabase = function( dbname, callback ) {
     return callback( new Error( DBREPO + " does not exist.") )
   }
 
+  console.log( 'loading database ' + dbname + ' from ' + DBFILE )
+
   try {
     let strRed = ""
     let strBlkDbB64 = fs.readFileSync( DBFILE, 'utf8' )

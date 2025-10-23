@@ -5,7 +5,55 @@ var Rates = {}
 //  "ethereum":{"usd":3318.74,"cad":4657.03}
 //}
 
+var clockstarted
+var clockbeating
+var timerid = 0
+
+function stopClock() {
+  if (timerid != 0) clearInterval( timerid )
+  timerid = 0
+  clockbeating = false
+  $("#ExpiryClock").html( '' )
+}
+
+function updateClock() {
+  if (!clockbeating) {
+    return
+  }
+
+  let msecelapsed = Date.now() - clockstarted
+  let msecremain = 5 * 60 * 1000 - msecelapsed // 5 minutes
+  if (msecremain <= 0) {
+    stopClock()
+    initOrderbot()
+    return
+  }
+
+  if (msecremain > 120000) // 2 minute
+    fontcolor = 'darkgreen'
+  else if (msecremain > 60000) // 60 seconds
+    fontcolor = 'darkorange'
+  else if (msecremain > 30000) // 30 seconds
+    fontcolor = 'red'
+  else // must be less than 30
+    fontcolor = 'purple'
+
+  $("#ExpiryClock").html(
+    '<font size=+1 color=' + fontcolor + '>' +
+    'Please complete booking within ' +
+    Math.floor(msecremain/1000.0) + ' seconds' +
+    '</font>' )
+}
+
+function startClock() {
+  stopClock()
+  clockbeating = true
+  clockstarted = Date.now()
+  timerid = setInterval( updateClock, 500 ) // half-second
+}
+
 function initOrderbot() {
+  $('#sendAmountArrow').show()
   $('#rxAddrArrow').hide()
   $('#bookArrow').hide()
   $('#ClientReceiveAddress').val("")
@@ -23,6 +71,9 @@ function initOrderbot() {
   PubSub.publish( 'CrxMethod', null )
 
   $("#ClientSendAmountInput").focus()
+
+  $("#ExpiryClock").html( '' )
+  stopClock()
 
   getRates()
 }
@@ -69,7 +120,7 @@ function getRates() {
   .catch( err => { console.log } )
 }
 
-function getFees( meth ) {
+function getFees() {
   $('#Fees').html( "" )
 
   let ctxAmount = $('#ClientSendAmountInput').val()
@@ -90,7 +141,7 @@ function getFees( meth ) {
 
   fetch( '/cgi-bin/fees', { method: "POST", body: JSON.stringify(req) } )
   .then( async rsp => {
-    if (!rsp.ok) throw 'invalid fees response'
+    if (!rsp || !rsp.ok) throw 'invalid fees response'
     let obj = await rsp.json()
     PubSub.publish( 'Fees', obj.result )
   } )
@@ -124,6 +175,8 @@ PubSub.subscribe( 'Fees', rsp => {
 } )
 
 function bookIt() {
+  stopClock()
+
   let sendAmt = $('#ClientSendAmountInput').val()
   if (!sendAmt || Number.parseFloat(sendAmt) == 0.0) {
     alert( 'Valid send amount required.' )
@@ -143,7 +196,7 @@ function bookIt() {
   }
 
   let crxObj = getCrxCoords()
-  if (!crxObj) {
+  if (!crxObj || crxObj.CrxAddress == null || crxObj.CrxAddress.length == 0) {
     alert( 'Valid address to receive payment required.' )
     return
   }
@@ -232,9 +285,14 @@ function getCrxCoords() {
   else if (meth == 'BTCLIGHTNING') {
     result.CrxMethod = 'BTCLIGHTNING'
     addr = $('#BTCLIGHTNING').val()
-    if (!BLAddrValidator.isValidEmail(addr) ) {
-      alert( BLAddrValidator.lightningRules() )
-      return null;
+
+    let decoded = null
+    try {
+      decoded = BOLT11.decode( addr )
+    }
+    catch( ex ) {
+      alert( 'Decode error. Please place a valid BOLT11 invoice.' )
+      return null
     }
   }
   else if (meth == 'ETHMAINNET') {
@@ -465,6 +523,31 @@ PubSub.subscribe( 'CtxMethod', (meth) => {
   setMethodGlyph( meth, true )
 } )
 
+PubSub.subscribe( 'CrxBitcoinAddress', () => {
+  let coords = getCrxCoords() // validates address, moves arrow
+  if (coords) startClock()
+} )
+
+PubSub.subscribe( 'CrxLightningInvoice', () => {
+  let encx = $('#BTCLIGHTNING').val()
+
+  try {
+    let decx = BOLT11.decode( encx )
+    $('#rxAddrArrow').hide()
+  }
+  catch( ex ) {
+    alert( ex.toString() )
+  }
+
+  let coords = getCrxCoords() // validates address, moves arrow
+  if (coords) startClock()
+} )
+
+PubSub.subscribe( 'CrxINTERACAddress', () => {
+  let coords = getCrxCoords() // validates address, moves arrow
+  if (coords) startClock()
+} )
+
 PubSub.subscribe( 'CrxMethod', (meth) => {
   if (!meth)
     meth = $('#CrxMethodSelect').val()
@@ -472,14 +555,20 @@ PubSub.subscribe( 'CrxMethod', (meth) => {
   let dv = $('#ClientReceiveCoordsDiv')
   if (meth == 'BTCMAINNET') {
     dv.html( '<input id=BTCMAINNET type=text required size=43 maxlength=75 ' +
+      'onchange="PubSub.publish(\'CrxBitcoinAddress\')" ' + 
       'placeholder="Bitcoin/BTC mainnet address" ></input>' )
   }
   else if (meth == 'BTCLIGHTNING') {
-    dv.html( '<input id=BTCLIGHTNING type=text required size=42 maxlength=75 '
-      + 'placeholder="Bitcoin Lightning email-like address" ></input>' )
+    dv.html(
+      '<textarea class=data id=BTCLIGHTNING ' +
+        'rows=5 cols=90 onchange="PubSub.publish(\'CrxLightningInvoice\')">' +
+      'Copy/Paste your BOLT11 invoice here.\n' +
+      'Please ensure the amount matches exactly.' +
+      '</textarea>' )
   }
   else if (meth == 'INTERAC') {
     dv.html( '<input id=INTERAC type=text required size=42 maxlength=75 ' +
+      'onchange="PubSub.publish(\'CrxINTERACAddress\')" ' + 
       'placeholder="email to receive INTERAC payment" ></input>' )
   }
   else if (meth == 'ZELLE') {
@@ -523,7 +612,7 @@ PubSub.subscribe( 'CrxMethod', (meth) => {
 
   setMethodGlyph( meth, false )
 
-  getFees( meth )
+  getFees()
 } )
 
 // ====== ===== ===== =====

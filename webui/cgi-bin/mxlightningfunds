@@ -2,5 +2,5 @@
 
 const cgitows = require( './cgitowsadmin.js' )
 
-cgitows.doit( "mxctxreceived" )
+cgitows.doit( "mxlightningfunds" )
 

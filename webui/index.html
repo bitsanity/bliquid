@@ -12,7 +12,8 @@
   <meta name="author" content="B-Liquid Cryptos Ltd. (BC)" />
   <meta name="keywords"
     content="Cryptocurrency,Crypto,Retail,B-Liquid,BC,Victoria,ATM,BTM" />
-  <meta http-equiv="onion-location" content="http://tbd.onion" />
+  <meta http-equiv="onion-location"
+content="http://cctg5gm7xencpn2ohrpkodm5h6jhlf32l5iaus74h2xb62tvhls2ugid.onion:8000/" />
 </head>
 
 <body>
@@ -22,38 +23,90 @@
 <p/>
 <font size=+2>B-LIQUID CRYPTOS LTD.</font><br>
 A Corporation in British Columbia&nbsp;
-<img width=25 height=15 src=img/Flag_of_British_Columbia.svg></img>
+<img width=25 height=15 src=img/Flag_of_British_Columbia.svg
+  onclick="window.open('https://www2.gov.bc.ca/')">
+</img>
 </div>
 
-<p/>
+<p>&nbsp;</p>
 
 <div id=Main>
 <center>
+
 <table>
-
-<tr><td>&nbsp;</td></tr>
-
 <tr>
-<th colspan=5 bgcolor=lightgrey>Services Available</th>
-</tr>
+<th>TRADE WITH B-LIQUID:</th>
+<td>
+<div id=TabButtons class="tab" style="display:inline-block">
+  <button class="tablinks" id="OnlineTabButton"
+          onclick="openTab(event,'OnlineTab')" >
+          <span><img src=img/internet.svg height=25><br>Website Order</span>
+  </button>
+  <button class="tablinks" id="ATMTabButton"
+          onclick="openTab(event,'ATMTab')" >
+          <span><img src=img/atm.svg height=25><br>Our ATM</span>
+  </button>
+  <button class="tablinks" id="InPersonTabButton"
+    onclick="openTab(event,'InPersonTab')" >
+    <span><img src=img/meeting.svg height=25><br>In-Person</span>
+  </button>
+  <button class="tablinks" id="CashByMailTabButton"
+    onclick="openTab(event,'CashByMailTab')" >
+    <span><img src=img/cashbymail.svg height=25><br>Cash By Mail</span>
+  </button>
+</div>
+</td>
+</table>
 
+<div id=OnlineTab class=tabcontent>
+<table>
 <tr>
-  <td align=right>
-    <img src=img/bitcoin-btc-logo.svg height=30 width=30 />
+  <td><input type="submit" value="Buy ₿itcoin"
+             onclick="window.open('/orderbot.html')">
+      </input>
   </td>
-  <td align=left colspan=4>
-    <span class=label>
-      Bitcoin (BTC) for Canadian (CAD) cash, in-person, Victoria area</span>
+  <td>Pay us by e-Transfer then we send you ₿itcoin</td>
+</tr>
+<tr>
+  <td><input class=sellbutton
+         type=submit
+         value="Sell ₿itcoin"
+         style="color: darkred;border: 1px solid darkred;"
+         onclick="window.open('/orderbot.html?ctx=BTC&crx=CAD')">
+      </input>
+  </td>
+  <td>Send ₿itcoin to us then we e-Transfer CAD to you</td>
+</tr>
+<tr>
+  <td colspan=3 align=center><i>Online trades under $1000.00 CAD</i></td>
+</tr>
+</table>
+</div>
+
+<div id=ATMTab class=tabcontent>
+<table>
+<tr>
+  <td colspan=2 align=center>
+    Our cryptocurrency-ATM (Automated Teller Machine) is located at<br>
+    <b><tt>TBD</tt></b> in Victoria, British Columbia Canada.
+    <p/>
+    The ATM sells Bitcoin for cash only. Debit/credit cards are not accepted.
+    <br>
+    The machine sells Bitcoin in amounts up to <b><tt>$300 CAD</tt></b>.
   </td>
 </tr>
-
-<tr><td>&nbsp;</td></tr>
-
 <tr>
-  <td class=label align=center colspan=5>
-    <span class=highlit>
-      Please submit your inquiry and we will email you within 1 business day:
-    </span>
+  <td align=right><img src=img/gaia.png></img></td>
+  <td align=center><img src=img/btm-location.png></img></td>
+</tr>
+</table>
+</div>
+
+<div id=InPersonTab class=tabcontent>
+<table>
+<tr>
+  <td colspan=4>
+    Please submit an inquiry and we will reply within 1 business day:
   </td>
 </tr>
 
@@ -62,7 +115,8 @@ A Corporation in British Columbia&nbsp;
 
   <form action="/cgi-bin/btccad" method="post">
   <label class=label for="emaddr">Reply To:</label>
-  <input class=data type=text id="emaddr" name="emaddr" value="your@email.ext">
+  <input class=data type=text id="emaddr" name="emaddr"
+    value="your email address here">
   <p>
   <span class=label>Wish To:</span>
   <input type="radio" id="tobuy" name="buysell" value=Buy checked>
@@ -74,40 +128,111 @@ A Corporation in British Columbia&nbsp;
   <input class=data type=text id="amt" name="amt" value="0.00000000" size=12>
   BTC
   <br><br>
-  <input class="label" type="submit" value="Submit">
+  <input class="label" type="submit" value="Submit"></input>
   </form>
 
   </td>
 </tr>
+</table>
+</div>
 
+<div id=CashByMailTab class=tabcontent>
+<p>&nbsp;</p>
+<table>
+  <tr>
+    <th colspan=2 bgcolor=lightgreen>Instructions</th>
+  </tr>
+
+  <tr>
+    <td>&nbsp;</td>
+  </tr>
+
+  <tr>
+    <th align=right valign=top>Mail cash to:</th>
+    <td class=data>
+      TBD - TBD Somewhere Street<br>
+      Victoria, BC<br>
+      V1N 1N1
+    </td>
+  </tr>
+
+  <tr>
+  <td colspan=2 class=fineprint>
+  <ul>
+  <li>Canada Post is very good but sending cash by mail has risks.</li>
+  <li>B-Liquid is not responsible for mail lost or already opened in transit.
+  </li>
+  <li>Place cash (no coins) inside a folded card or sheet of paper.</li>
+  <li>Include your blockchain address. <b>Please triple-check it is valid</b>.
+  </li>
+  <li>B-Liquid will use the rate in effect when our office receives the cash.
+  </li>
+  <li>B-Liquid will record whatever was received and done, for our records.</li>
+  <li>Send an amount that is less than $1000 Canadian Dollars (CAD).</li>
+  <li>OPTIONAL: Indicate where we should send a paper or email a receipt.</li>
+  <li>OPTIONAL: Include something to uniquely identify your order for support.
+  </li>
+  <li>NOTE: Our mail-forwarding service signs if a signature is required.</li>
+  </ul>
+  </td>
+  </tr>
+
+</table>
+</div>
+
+<table>
 <tr><td>&nbsp;</td></tr>
 
 <tr>
-<td align=center colspan=5>
-<span class=label>Trades limited to under $1,000 CAD.</span>
-</td>
-</tr>
-
-<tr><td>&nbsp;</td></tr>
-
-<tr>
-  <th colspan=2 bgcolor=lightgrey>Payment Methods Supported</th>
+  <th colspan=2 bgcolor=lightgrey>PAYMENT METHODS SUPPORTED</th>
   <th>&nbsp;</th>
-  <th colspan=2 bgcolor=lightgrey>Free Cryptography Tools</th>
+  <th colspan=2 bgcolor=lightgrey>FREE CRYPTOGRAPHY TOOLS and SERVICES</th>
+</tr>
+
+<tr>
+  <td align=right>
+    <img src=img/bitcoin-btc-logo.svg height=30 width=30
+      onclick="window.open('https://bitcoin.org/')" />
+    <img src=img/lightning_logo.svg height=30 width=30
+      onclick="window.open('https://lightning.network/')" />
+  </td>
+  <td align=left>₿itcoin: mainnet and Lightning⚡Network</td>
+  <td>&nbsp;</td>
+  <td>
+    <img src="./img/stealthcalc.svg" height=30
+      onclick="window.open('https://www.lockheedmartin.com/en-us/news/features/history/f-117.html')" />
+  </td>
+  <td><a href=/stealthpay/index.html>Ethereum Stealth Payment Calculator</a>
+  </td>
+</tr>
+
+<tr>
+  <td align=right>
+    <img src="./img/cash.svg" height=25
+      onclick="window.open('https://www.bankofcanada.ca/')" />
+  </td>
+  <td>Physical Cash (CAD only)</td>
+  <td>&nbsp;</td>
+  <td>
+    <img src="./img/eccalc.svg" height=25
+      onclick="window.open('https://learnmeabitcoin.com/technical/cryptography/elliptic-curve/')" >
+  </td>
+  <td>
+    <a href=/ecvisualizer/index.html>Elliptic Curve Address Calculator</a>
+  </td>
 </tr>
 <tr>
-  <td align=right><img src="./img/ETransfer-logo.svg" height=25 /></td>
-  <td><span class=label>INTERAC e-Transfer</span> (soon)</td>
+  <td align=right><img src="./img/ETransfer-logo.svg" height=25
+    onclick="window.open('https://www.interac.ca/')" />
+  </td>
+  <td>INTERAC e-Transfer</td>
   <td>&nbsp;</td>
-  <td><img src="./img/eccalc.svg" height=25></td>
-  <td><a href=/ecvisualizer/index.html>Elliptic Curve Calculator</a></td>
-</tr>
-<tr>
-  <td align=right><img src="./img/cash.svg" height=25 /></td>
-  <td><span class=label>Physical Cash</span> (CAD only)</td>
-  <td>&nbsp;</td>
-  <td><img src="./img/stealthcalc.svg" height=25 /></td>
-  <td><a href=/stealthpay/index.html>Ethereum Stealth Calculator</a></td>
+  <td><img src="./img/wallet.svg" height=25
+      onclick="window.open('https://github.com/bitsanity/simpleth/')" >
+  </td>
+  <td>
+  <a href="https://github.com/bitsanity/simpleth">SIMPLΞTH Wallet/Android</a>
+  </td>
 </tr>
 
 <tr><td>&nbsp;</td></tr>
@@ -127,18 +252,43 @@ A Corporation in British Columbia&nbsp;
 </td>
 
 <td align=center valign=top>
-&copy; 2024 B-Liquid Cryptos Ltd.<br>
-<img width=25 height=16 src=img/Flag_of_Canada.svg align=top></img>&nbsp;
+&copy; 2023-2025 B-Liquid Cryptos Ltd.<br>
+<img width=25 height=16 src=img/Flag_of_Canada.svg align=top onclick="window.open('https://www.canada.ca/en.html')"></img>&nbsp;
 FINTRAC: M23402268 - B-Liquid Cryptos Ltd.
 </td>
 
 <td>
-<img src="./img/onionavailable.svg" width=152 height=35 />
+<img src="./img/onionavailable.svg" width=152 height=35
+  onclick="copyOnion();alert('.onion url copied to clipboard - use Tor.')" />
 </td>
 </tr>
 
 </table>
 </div>
 
+<script type="text/javascript">
+  function openTab(evt, tabName) {
+    var ii, tabcontent, tablinks;
+
+    tabcontent = document.getElementsByClassName("tabcontent");
+    for (ii = 0; ii < tabcontent.length; ii++) {
+      tabcontent[ii].style.display = "none";
+    }
+
+    tablinks = document.getElementsByClassName("tablinks");
+    for (ii = 0; ii < tablinks.length; ii++) {
+      tablinks[ii].className = tablinks[ii].className.replace(" active", "");
+    }
+
+    document.getElementById(tabName).style.display = "block";
+    evt.currentTarget.className += " active";
+  }
+
+  function copyOnion() {
+    navigator.clipboard.writeText(
+  'http://cctg5gm7xencpn2ohrpkodm5h6jhlf32l5iaus74h2xb62tvhls2ugid.onion:8000')
+  }
+
+</script>
 </body>
 </html>

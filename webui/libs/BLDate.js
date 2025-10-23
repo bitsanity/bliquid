@@ -1,10 +1,12 @@
-const FOURHOURSMS       = 1000 * 60 * 60 * 4
-const TWENTYFOURHOURSMS = 1000 * 60 * 60 * 24
-
-const MONTHS =
-  ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-
 var BLDate = (function() {
+
+  const HOURMS = 1000 * 60 * 60
+  const FOURHOURSMS = 4 * HOURMS
+  const TWENTYFOURHOURSMS = 24 * HOURMS
+  const ONEWEEKMS = 7 * TWENTYFOURHOURSMS
+
+  const MONTHS =
+    ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
   function toReadableDate( millisec, crunch=false ) {
     if (0 == millisec) return ""
@@ -51,6 +53,7 @@ var BLDate = (function() {
 
     let yr = ts.getFullYear()
     let mon = ts.getMonth() + 1
+    if (mon < 10) mon = '0' + mon
     let day = ts.getDate()
     if (day < 10) day = '0' + day
     let hr = ts.getHours()
@@ -74,8 +77,10 @@ var BLDate = (function() {
   }
 
   return {
+    HOURMS : HOURMS,
     FOURHOURSMS : FOURHOURSMS,
     TWENTYFOURHOURSMS : TWENTYFOURHOURSMS,
+    ONEWEEKMS : ONEWEEKMS,
     toReadableDate : toReadableDate,
     timestamp : timestamp,
     toHTMLInputDate : toHTMLInputDate,

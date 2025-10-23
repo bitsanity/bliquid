@@ -1,5 +1,3 @@
-#!/home/skull/nodejs/bin/node
-
 const fs = require( 'fs' )
 const wss = require( 'ws' )
 const ecjson = require( './ecjsonrpc.js' )
@@ -7,8 +5,9 @@ const ecjson = require( './ecjsonrpc.js' )
 const WSURL = 'ws://10.0.0.113:8888'
 //const WSURL = 'ws://70.66.248.196:8888'
 
-const privkeyhex =
+var privkeyhex =
   "e25a5ca7b7bfd9bd08cceb55a22cdb8ac9c1827ed61fdcf032a8c103bacc6f15"
+// pub: 036d084b5cf6649bc0711f0073af0f43b46e54b08e8b455652149eaad909074930
 
 function getResponseTo( method, reqobj ) {
 
@@ -58,6 +57,10 @@ function handlePost( meth ) {
     let body = JSON.parse( data.toString() )
     getResponseTo( meth, body )
   });
+}
+
+module.exports.setPrivateKey = function( pkhex ) {
+  privkeyhex = pkhex
 }
 
 module.exports.doit = function( meth ) {
